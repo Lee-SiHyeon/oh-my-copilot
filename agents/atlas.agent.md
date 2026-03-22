@@ -114,6 +114,72 @@ Use when working across multiple repositories simultaneously.
 
 ---
 
+## nlm (NotebookLM CLI) — Research Tool
+
+`nlm` is at `~\.local\bin\nlm.exe`. 17 notebooks with AI research ready to query.
+
+### ⚠️ Windows Setup (REQUIRED before every nlm call)
+```powershell
+$env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
+```
+Profile is now permanent (`Microsoft.PowerShell_profile.ps1`) but encoding must be set per-session.
+
+### ⚠️ Call Pattern (stderr must NOT mix with stdout)
+```powershell
+# CORRECT — direct exe invocation
+$result = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query <alias> "question" --json | ConvertFrom-Json
+
+# WRONG — 2>&1 breaks JSON parsing
+$result = nlm notebook query <alias> "question" --json 2>&1 | ConvertFrom-Json
+```
+
+### Notebook Aliases (pre-configured)
+| Alias | Notebook |
+|-------|---------|
+| `claude-flow` | Claude-Flow v3: ReasoningBank, Q-Learning, 4-step pipeline |
+| `ai-agents` | AI Agent Frameworks, FLOW, HITL |
+| `rag` | RAG Architectures & AI Data Pipelines |
+| `google-ai` | Google Antigravity: Agentic AI Platforms |
+
+### Key Commands
+```powershell
+# Query (always use --json for structured output)
+$r = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query claude-flow "question" --json | ConvertFrom-Json
+$r.value.answer   # answer text
+$r.value.conversation_id  # use for follow-up
+
+# Follow-up in same conversation
+$r2 = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query claude-flow "follow-up" --json --conversation-id $cid | ConvertFrom-Json
+
+# List notebooks
+& "$env:USERPROFILE\.local\bin\nlm.exe" notebook list
+
+# Add source (URL, text, file, youtube)
+& "$env:USERPROFILE\.local\bin\nlm.exe" source add claude-flow --url "https://..." --wait
+& "$env:USERPROFILE\.local\bin\nlm.exe" source add claude-flow --text "content" --title "title"
+
+# Create note (no --json flag - not supported)
+& "$env:USERPROFILE\.local\bin\nlm.exe" note create claude-flow --content "content" --title "title"
+
+# List notes
+& "$env:USERPROFILE\.local\bin\nlm.exe" note list claude-flow
+```
+
+### Limitations Discovered
+- `--json` flag: Only on `notebook query`, `notebook list`, `source list` — NOT on `note create`
+- `alias set`: Works for notebook/source IDs only — note IDs cause API error code 5
+- Default text formatter has a bug (UnicodeEncodeError cp949) → always use `--json`
+
+### Use nlm for research when
+- Need deep analysis from pre-loaded curated notebooks
+- Asking about Claude-Flow, RAG, AI agent patterns
+- Need conversation continuity (multi-turn research)
+- Want to store findings as notes inside NotebookLM
+
+---
+
 ## Self-Improvement Protocol
 
 When you encounter a gap in capabilities:
