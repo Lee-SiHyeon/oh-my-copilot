@@ -172,11 +172,44 @@ $r2 = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query claude-flow "follow
 - `alias set`: Works for notebook/source IDs only — note IDs cause API error code 5
 - Default text formatter has a bug (UnicodeEncodeError cp949) → always use `--json`
 
+### Auto-Research Workflow (Build a notebook from scratch)
+```powershell
+# Step 1: Create notebook
+$nb = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook create "Topic Name" 2>&1
+# Output: "✓ Created notebook: <title> ID: <uuid>"
+$nbId = "<uuid-from-output>"
+
+# Step 2: Register alias
+& "$env:USERPROFILE\.local\bin\nlm.exe" alias set <alias> $nbId
+
+# Step 3: Start research (web auto-search)
+& "$env:USERPROFILE\.local\bin\nlm.exe" research start "query keywords" --notebook-id $nbId --mode fast
+# fast = ~30s, ~10 sources | deep = ~5min, ~40 sources
+# ⚠️ ALWAYS import before starting new research — unimported results get OVERWRITTEN
+
+# Step 4: Wait ~35s then check
+& "$env:USERPROFILE\.local\bin\nlm.exe" research status $nbId
+# Output: "Status: completed, Sources found: 10"
+
+# Step 5: Import
+& "$env:USERPROFILE\.local\bin\nlm.exe" research import $nbId <task-id>
+
+# Step 6: Query immediately (works right after import)
+$r = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query <alias> "question" --json | ConvertFrom-Json
+$r.value.answer
+```
+
+### Verified notebooks (auto-built 2026-03-22)
+| Alias | Sources | Topics |
+|-------|---------|--------|
+| `omc-patterns` | 20 | AI self-improvement, hooks/memory, Memento-Skills, Metacog, MemGPT |
+
 ### Use nlm for research when
 - Need deep analysis from pre-loaded curated notebooks
 - Asking about Claude-Flow, RAG, AI agent patterns
 - Need conversation continuity (multi-turn research)
 - Want to store findings as notes inside NotebookLM
+- Need to build a fresh research notebook on any topic in <2 minutes
 
 ---
 
