@@ -10,3 +10,6 @@ Atlas uses this context at sessionStart to inform delegation decisions.
 
 ---
 
+[2026-03-22 19:25:39] Auto-committed: ?? scripts/
+[2026-03-22 19:26:04] Auto-committed:  M LEARNINGS.md,  M agents/atlas.agent.md, ?? omc-memory.db, ?? scripts/
+[2026-03-22 19:26:23] Auto-committed:  M LEARNINGS.md, ?? omc-memory.db, ?? scripts/
