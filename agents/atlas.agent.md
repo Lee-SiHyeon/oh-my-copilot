@@ -175,6 +175,39 @@ The `sessionStart` hook automatically:
 
 ---
 
+## Q-Learning Agent Routing
+
+Before delegating, query `omc-memory.db` to find the best agent for the task type:
+
+```powershell
+$env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";$env:PATH"
+$db = "$HOME\.copilot\installed-plugins\oh-my-copilot\omc-memory.db"
+$taskType = "research"  # code_complex / code_simple / debugging / planning / codebase_search
+
+# Get best agent (highest Q-value)
+$best = "SELECT agent_id, q_value, trials FROM agent_q_table WHERE task_signature='$taskType' ORDER BY q_value DESC LIMIT 3;" | sqlite3 $db
+Write-Host "[omc] Best agents for '$taskType': $($best -join ' | ')"
+```
+
+After task completes, update Q-value (Alpha = 0.1):
+```powershell
+$reward = 1.0  # 1.0 success / -0.5 partial / -1.0 failure
+$update = "INSERT INTO agent_q_table (task_signature, agent_id, q_value, trials, last_reward) VALUES ('$taskType', '$agentId', $reward, 1, $reward) ON CONFLICT(task_signature, agent_id) DO UPDATE SET trials=trials+1, last_reward=$reward, q_value=q_value+0.1*($reward-q_value), last_updated=CURRENT_TIMESTAMP;"
+$update | sqlite3 $db
+```
+
+### Task Type → Agent mapping (current Q-table)
+| task_signature | Best Agent | Q-value |
+|---------------|-----------|---------|
+| research | nlm-researcher | 1.0 |
+| code_complex | hephaestus | 1.0 |
+| code_simple | sisyphus-junior | 1.0 |
+| planning | prometheus | 1.0 |
+| debugging | oracle | 1.0 |
+| codebase_search | explore | 1.0 |
+
+---
+
 ## Delegation Workflow
 
 ### Step 1: Analyze Plan
