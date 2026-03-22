@@ -19,21 +19,92 @@
     powershell -File scripts\collect-session-data.ps1 -Depth 7 -Verbose
 #>
 
-# NOTE: Written for Windows PowerShell 5.1+ compatibility.
+# NOTE: Kept compatible with Windows PowerShell 5.1 while also running under pwsh.
 #       Avoids PS7-only operators (?. and ??) for maximum portability.
 param(
-    [int]$Depth   = 30,   # look-back window in days
-    [switch]$Verbose      # diagnostic output to stderr (stdout stays JSON)
+    [int]$Depth = 30,   # look-back window in days
+    [switch]$Verbose    # diagnostic output to stderr (stdout stays JSON)
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
 
-# ─── helpers ──────────────────────────────────────────────────────────────────
+# ─── platform helpers ──────────────────────────────────────────────────────────
 
 function Write-Diag {
     param([string]$Msg)
     if ($Verbose) { [Console]::Error.WriteLine("[collect-session-data] $Msg") }
 }
+
+function Get-HomeDirectory {
+    if (-not [string]::IsNullOrWhiteSpace($HOME)) { return $HOME }
+    return [Environment]::GetFolderPath('UserProfile')
+}
+
+function Get-CopilotRoot {
+    Join-Path (Get-HomeDirectory) '.copilot'
+}
+
+function Get-PluginRoot {
+    Split-Path -Parent $PSScriptRoot
+}
+
+function Test-IsWindows {
+    $env:OS -eq 'Windows_NT'
+}
+
+function Resolve-Sqlite3Path {
+    $command = Get-Command sqlite3 -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    $command = Get-Command sqlite3.exe -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    if (Test-IsWindows) {
+        $localAppData = $env:LOCALAPPDATA
+        if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+            $wingetPath = Join-Path $localAppData 'Microsoft\WinGet\Packages\SQLite.SQLite_Microsoft.Winget.Source_8wekyb3d8bbwe\sqlite3.exe'
+            if (Test-Path $wingetPath) { return $wingetPath }
+        }
+    }
+
+    $pathEntries = New-Object System.Collections.ArrayList
+    foreach ($pathValue in @($env:PATH, [Environment]::GetEnvironmentVariable('PATH', 'User'), [Environment]::GetEnvironmentVariable('PATH', 'Machine'))) {
+        if ([string]::IsNullOrWhiteSpace($pathValue)) { continue }
+        foreach ($entry in ($pathValue -split [IO.Path]::PathSeparator)) {
+            if (-not [string]::IsNullOrWhiteSpace($entry) -and -not ($pathEntries -contains $entry)) {
+                [void]$pathEntries.Add($entry)
+            }
+        }
+    }
+
+    foreach ($entry in $pathEntries) {
+        foreach ($candidateName in @('sqlite3', 'sqlite3.exe')) {
+            $candidate = Join-Path $entry $candidateName
+            if (Test-Path $candidate) { return $candidate }
+        }
+    }
+
+    return $null
+}
+
+function Get-PathLeaf {
+    param([string]$PathText)
+
+    if ([string]::IsNullOrWhiteSpace($PathText)) { return '' }
+
+    $trimmed = $PathText.Trim().TrimEnd('\', '/')
+    if ([string]::IsNullOrWhiteSpace($trimmed)) { return '' }
+
+    $leaf = Split-Path -Path $trimmed -Leaf -ErrorAction SilentlyContinue
+    if (-not [string]::IsNullOrWhiteSpace($leaf)) { return $leaf }
+
+    $parts = $trimmed -split '[\\/]'
+    if ($parts.Count -gt 0) { return $parts[$parts.Count - 1] }
+
+    return ''
+}
+
+# ─── generic helpers ───────────────────────────────────────────────────────────
 
 # Escape a string for safe embedding in a JSON string literal.
 # Used as a fallback; ConvertTo-Json handles full objects natively.
@@ -360,10 +431,24 @@ function Get-McpSignals {
     }
 
     $candidatePaths = New-Object System.Collections.ArrayList
-    Add-UniqueString -List $candidatePaths -Value "$env:USERPROFILE\.copilot\config.json"
-    Add-UniqueString -List $candidatePaths -Value "$env:APPDATA\Code\User\settings.json"
+    $home           = Get-HomeDirectory
+    $copilotRoot    = Get-CopilotRoot
 
-    $copilotRoot = "$env:USERPROFILE\.copilot"
+    Add-UniqueString -List $candidatePaths -Value (Join-Path $copilotRoot 'config.json')
+
+    if (Test-IsWindows) {
+        if (-not [string]::IsNullOrWhiteSpace($env:APPDATA)) {
+            Add-UniqueString -List $candidatePaths -Value (Join-Path $env:APPDATA 'Code\User\settings.json')
+        }
+    }
+
+    $xdgConfigHome = $env:XDG_CONFIG_HOME
+    if ([string]::IsNullOrWhiteSpace($xdgConfigHome)) {
+        $xdgConfigHome = Join-Path $home '.config'
+    }
+    Add-UniqueString -List $candidatePaths -Value (Join-Path $xdgConfigHome 'Code/User/settings.json')
+    Add-UniqueString -List $candidatePaths -Value (Join-Path $home 'Library/Application Support/Code/User/settings.json')
+
     if (Test-Path $copilotRoot) {
         $jsonFiles = Get-ChildItem $copilotRoot -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Extension -in '.json', '.jsonc' }
@@ -423,24 +508,7 @@ function Get-McpSignals {
 
 # ─── A. Locate sqlite3 ────────────────────────────────────────────────────────
 
-# 1. Try PATH first (works when sqlite3 is a globally installed tool)
-$_cmd    = Get-Command sqlite3 -ErrorAction SilentlyContinue
-$sqlite3 = if ($_cmd) { $_cmd.Source } else { $null }
-
-# 2. Known WinGet install location (matches existing plugin convention)
-if (-not $sqlite3) {
-    $wingetPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\SQLite.SQLite_Microsoft.Winget.Source_8wekyb3d8bbwe\sqlite3.exe"
-    if (Test-Path $wingetPath) { $sqlite3 = $wingetPath }
-}
-
-# 3. Brute-force machine PATH scan (handles non-standard installs)
-if (-not $sqlite3) {
-    $sqlite3 = [System.Environment]::GetEnvironmentVariable("PATH", "Machine").Split(";") |
-        ForEach-Object { Join-Path $_ "sqlite3.exe" } |
-        Where-Object   { Test-Path $_ } |
-        Select-Object  -First 1
-}
-
+$sqlite3 = Resolve-Sqlite3Path
 Write-Diag "sqlite3: $(if ($sqlite3) { $sqlite3 } else { 'NOT FOUND' })"
 
 # ─── B. session.log analysis ──────────────────────────────────────────────────
@@ -448,10 +516,11 @@ Write-Diag "sqlite3: $(if ($sqlite3) { $sqlite3 } else { 'NOT FOUND' })"
 #     Legacy : [2026-03-22 17:46:40] Session started in C:\path\to\dir
 #     Current: [2026-03-22 18:55:52] SESSION_START cwd=C:\path\to\dir
 
-$logPath      = "$env:USERPROFILE\.copilot\session.log"
-$cutoff       = (Get-Date).AddDays(-$Depth)
-$sessionCount = 0
-$dirCounts    = @{}   # leaf-name → visit count
+$copilotRoot   = Get-CopilotRoot
+$logPath       = Join-Path $copilotRoot 'session.log'
+$cutoff        = (Get-Date).AddDays(-$Depth)
+$sessionCount  = 0
+$dirCounts     = @{}   # leaf-name → visit count
 
 if (Test-Path $logPath) {
     $lines = Get-Content $logPath -ErrorAction SilentlyContinue
@@ -480,7 +549,7 @@ if (Test-Path $logPath) {
         if ([string]::IsNullOrWhiteSpace($cwdPath)) { continue }
 
         # Keep only the last path segment (e.g. "youtube-shorts-pipeline")
-        $segment = Split-Path $cwdPath -Leaf
+        $segment = Get-PathLeaf $cwdPath
         if ([string]::IsNullOrWhiteSpace($segment)) { continue }
 
         if ($dirCounts.ContainsKey($segment)) {
@@ -518,8 +587,18 @@ if ($dirCounts.Count -gt 0 -and $sessionCount -gt 0) {
 $completedTodos = @()
 
 if ($sqlite3) {
-    $sessionDbs = Get-ChildItem "$env:USERPROFILE\.copilot\session-state\*\session.db" `
-        -ErrorAction SilentlyContinue
+    $sessionDbs = @()
+    $sessionStateRoot = Join-Path $copilotRoot 'session-state'
+    if (Test-Path $sessionStateRoot) {
+        $sessionDbs = Get-ChildItem $sessionStateRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $dbPath = Join-Path $_.FullName 'session.db'
+                if (Test-Path $dbPath) {
+                    Get-Item $dbPath -ErrorAction SilentlyContinue
+                }
+            } |
+            Where-Object { $null -ne $_ }
+    }
 
     Write-Diag "Found $($sessionDbs.Count) session.db file(s)"
 
@@ -556,7 +635,7 @@ if ($sqlite3) {
 $agentQTable = @()
 
 if ($sqlite3) {
-    $omcDb = "$env:USERPROFILE\.copilot\installed-plugins\oh-my-copilot\omc-memory.db"
+    $omcDb = Join-Path (Get-PluginRoot) 'omc-memory.db'
 
     if (Test-Path $omcDb) {
         $sql = ".mode json`nSELECT task_signature, agent_id, q_value, trials FROM agent_q_table ORDER BY trials DESC;"

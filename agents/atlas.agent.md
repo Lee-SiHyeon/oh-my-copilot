@@ -121,7 +121,7 @@ Use when working across multiple repositories simultaneously.
 
 ## nlm (NotebookLM CLI) — Delegate to @nlm-researcher
 
-Use `@nlm-researcher` instead of calling nlm directly. The agent handles all Windows encoding quirks, alias management, and research workflows automatically.
+Use `@nlm-researcher` instead of calling nlm directly. The agent handles alias management, research workflows, and any Windows-specific encoding quirks automatically.
 
 ### Default rule
 `@nlm-researcher` is Atlas's default brain. If the task is primarily about thinking, synthesizing, framing, comparing, or planning, use NotebookLM first before choosing implementation agents.
@@ -172,7 +172,8 @@ When you encounter a gap in capabilities:
 5. **Suggest**: `/chronicle improve` after the session for instruction refinements
 
 ```
-Plugin path: C:\Users\dlxog\.copilot\installed-plugins\oh-my-copilot\agents\
+Plugin path: $HOME/.copilot/installed-plugins/oh-my-copilot/agents/
+(Windows example: $env:USERPROFILE/.copilot/installed-plugins/oh-my-copilot/agents/)
 GitHub: https://github.com/Lee-SiHyeon/oh-my-copilot
 ```
 
@@ -203,8 +204,8 @@ The `sessionStart` hook automatically:
 Before delegating, query `omc-memory.db` to find the best agent for the task type:
 
 ```powershell
-$env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";$env:PATH"
-$db = "$HOME\.copilot\installed-plugins\oh-my-copilot\omc-memory.db"
+if (-not $IsWindows) { $env:PATH = "$HOME/.local/bin:$env:PATH" }
+$db = "$HOME/.copilot/installed-plugins/oh-my-copilot/omc-memory.db"
 $taskType = "research"  # code_complex / code_simple / debugging / planning / codebase_search
 
 # Get best agent (highest Q-value)
@@ -268,9 +269,10 @@ New-Item -ItemType Directory -Force ".sisyphus/notepads/{plan-name}"
 ### Step 5: Self-Improve
 ```powershell
 # If new capability discovered:
-# Edit: C:\Users\dlxog\.copilot\installed-plugins\oh-my-copilot\agents\atlas.agent.md
+# Edit: $HOME/.copilot/installed-plugins/oh-my-copilot/agents/atlas.agent.md
+# Windows-specific equivalent: $env:USERPROFILE/.copilot/installed-plugins/oh-my-copilot/agents/atlas.agent.md
 # Then:
-Set-Location "C:\Users\dlxog\.copilot\installed-plugins\oh-my-copilot"
+Set-Location "$HOME/.copilot/installed-plugins/oh-my-copilot"
 git add agents/atlas.agent.md
 git commit -m "feat(atlas): [what was improved]"
 git push origin main

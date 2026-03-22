@@ -5,17 +5,63 @@
 #   3. agent_q_table     — Q-Learning routing scores per task type
 
 param(
-    [string]$DbPath = "$PSScriptRoot\..\omc-memory.db"
+    [string]$DbPath
 )
 
-$sqlite3 = (Get-Command sqlite3 -ErrorAction SilentlyContinue)?.Source
-if (-not $sqlite3) {
-    $sqlite3 = [System.Environment]::GetEnvironmentVariable("PATH","Machine").Split(";") |
-        ForEach-Object { Join-Path $_ "sqlite3.exe" } |
-        Where-Object { Test-Path $_ } |
-        Select-Object -First 1
+$ErrorActionPreference = 'Stop'
+
+function Get-PluginRoot {
+    Split-Path -Parent $PSScriptRoot
 }
-if (-not $sqlite3) { Write-Error "sqlite3 not found in PATH"; exit 1 }
+
+function Test-IsWindows {
+    $env:OS -eq 'Windows_NT'
+}
+
+function Resolve-Sqlite3Path {
+    $command = Get-Command sqlite3 -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    $command = Get-Command sqlite3.exe -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    if (Test-IsWindows) {
+        $localAppData = $env:LOCALAPPDATA
+        if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+            $wingetPath = Join-Path $localAppData 'Microsoft\WinGet\Packages\SQLite.SQLite_Microsoft.Winget.Source_8wekyb3d8bbwe\sqlite3.exe'
+            if (Test-Path $wingetPath) { return $wingetPath }
+        }
+    }
+
+    $pathEntries = New-Object System.Collections.ArrayList
+    foreach ($pathValue in @($env:PATH, [Environment]::GetEnvironmentVariable('PATH', 'User'), [Environment]::GetEnvironmentVariable('PATH', 'Machine'))) {
+        if ([string]::IsNullOrWhiteSpace($pathValue)) { continue }
+        foreach ($entry in ($pathValue -split [IO.Path]::PathSeparator)) {
+            if (-not [string]::IsNullOrWhiteSpace($entry) -and -not ($pathEntries -contains $entry)) {
+                [void]$pathEntries.Add($entry)
+            }
+        }
+    }
+
+    foreach ($entry in $pathEntries) {
+        foreach ($candidateName in @('sqlite3', 'sqlite3.exe')) {
+            $candidate = Join-Path $entry $candidateName
+            if (Test-Path $candidate) { return $candidate }
+        }
+    }
+
+    return $null
+}
+
+if ([string]::IsNullOrWhiteSpace($DbPath)) {
+    $DbPath = Join-Path (Get-PluginRoot) 'omc-memory.db'
+}
+
+$sqlite3 = Resolve-Sqlite3Path
+if (-not $sqlite3) {
+    Write-Error "sqlite3 not found in PATH"
+    exit 1
+}
 
 $schema = @"
 CREATE TABLE IF NOT EXISTS semantic_memory (

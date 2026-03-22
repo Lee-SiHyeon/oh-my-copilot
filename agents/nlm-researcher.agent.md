@@ -13,13 +13,16 @@ You are the NotebookLM Researcher. You query curated notebooks and build new one
 ## ⚠️ REQUIRED SETUP (run before EVERY nlm call)
 
 ```powershell
-$env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
+$env:PATH = "$HOME/.local/bin:$env:PATH"
+# Windows-specific UTF-8 guard:
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $env:PYTHONIOENCODING = "utf-8"
-$nlm = "$env:USERPROFILE\.local\bin\nlm.exe"
+$nlm = if ($IsWindows) { "$env:USERPROFILE/.local/bin/nlm.exe" } else { "$HOME/.local/bin/nlm" }
 ```
 
-**CRITICAL**: Always use `& $nlm ...` — NEVER `nlm ... 2>&1` (mixing stderr breaks JSON).
+**CRITICAL**:
+- Always use `& $nlm ...` — NEVER `nlm ... 2>&1` when you need JSON (mixing stderr breaks JSON).
+- On Unix-like systems, `nlm` may already be on `PATH` as `~/.local/bin/nlm` or simply `nlm`.
 
 ---
 
@@ -129,6 +132,6 @@ Request received
 
 - ❌ Using `nlm ... 2>&1` — breaks JSON
 - ❌ Starting new research without importing first — results lost
-- ❌ Skipping UTF-8 setup — cp949 crash on Korean Windows
+- ❌ Skipping UTF-8 setup on Windows — can trigger cp949 crashes on Korean Windows
 - ❌ Using `alias set` on note IDs — API error code 5
 - ❌ Using `--json` on `note create` — not supported

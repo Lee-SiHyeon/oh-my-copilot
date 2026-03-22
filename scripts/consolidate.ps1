@@ -3,13 +3,77 @@
 # Implements: Memory Admission Control + Priority Decay update
 
 param(
-    [string]$DbPath    = "$PSScriptRoot\..\omc-memory.db",
-    [string]$LearnPath = "$PSScriptRoot\..\LEARNINGS.md",
-    [string]$LogPath   = "$HOME\.copilot\session.log",
-    [float]$Alpha      = 0.1    # Q-Learning update rate
+    [string]$DbPath,
+    [string]$LearnPath,
+    [string]$LogPath,
+    [float]$Alpha = 0.1    # Q-Learning update rate
 )
 
-$sqlite3 = (Get-Command sqlite3 -ErrorAction SilentlyContinue)?.Source
+$ErrorActionPreference = 'SilentlyContinue'
+
+function Get-HomeDirectory {
+    if (-not [string]::IsNullOrWhiteSpace($HOME)) { return $HOME }
+    return [Environment]::GetFolderPath('UserProfile')
+}
+
+function Get-CopilotRoot {
+    Join-Path (Get-HomeDirectory) '.copilot'
+}
+
+function Get-PluginRoot {
+    Split-Path -Parent $PSScriptRoot
+}
+
+function Test-IsWindows {
+    $env:OS -eq 'Windows_NT'
+}
+
+function Resolve-Sqlite3Path {
+    $command = Get-Command sqlite3 -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    $command = Get-Command sqlite3.exe -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    if (Test-IsWindows) {
+        $localAppData = $env:LOCALAPPDATA
+        if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+            $wingetPath = Join-Path $localAppData 'Microsoft\WinGet\Packages\SQLite.SQLite_Microsoft.Winget.Source_8wekyb3d8bbwe\sqlite3.exe'
+            if (Test-Path $wingetPath) { return $wingetPath }
+        }
+    }
+
+    $pathEntries = New-Object System.Collections.ArrayList
+    foreach ($pathValue in @($env:PATH, [Environment]::GetEnvironmentVariable('PATH', 'User'), [Environment]::GetEnvironmentVariable('PATH', 'Machine'))) {
+        if ([string]::IsNullOrWhiteSpace($pathValue)) { continue }
+        foreach ($entry in ($pathValue -split [IO.Path]::PathSeparator)) {
+            if (-not [string]::IsNullOrWhiteSpace($entry) -and -not ($pathEntries -contains $entry)) {
+                [void]$pathEntries.Add($entry)
+            }
+        }
+    }
+
+    foreach ($entry in $pathEntries) {
+        foreach ($candidateName in @('sqlite3', 'sqlite3.exe')) {
+            $candidate = Join-Path $entry $candidateName
+            if (Test-Path $candidate) { return $candidate }
+        }
+    }
+
+    return $null
+}
+
+if ([string]::IsNullOrWhiteSpace($DbPath)) {
+    $DbPath = Join-Path (Get-PluginRoot) 'omc-memory.db'
+}
+if ([string]::IsNullOrWhiteSpace($LearnPath)) {
+    $LearnPath = Join-Path (Get-PluginRoot) 'LEARNINGS.md'
+}
+if ([string]::IsNullOrWhiteSpace($LogPath)) {
+    $LogPath = Join-Path (Get-CopilotRoot) 'session.log'
+}
+
+$sqlite3 = Resolve-Sqlite3Path
 if (-not $sqlite3) { exit 0 }  # silently skip if sqlite3 unavailable
 
 if (-not (Test-Path $DbPath)) {
@@ -51,7 +115,7 @@ if (Test-Path $LearnPath) {
         }
 
         $escaped = $line -replace "'", "''"
-        $tokenWeight = [Math]::Min($line.Length / 10, 100)
+        $tokenWeight = [Math]::Min([Math]::Round($line.Length / 10), 100)
 
         # Insert with de-duplication
         Invoke-Sqlite @"
