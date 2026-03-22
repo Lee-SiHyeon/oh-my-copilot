@@ -4,22 +4,22 @@
     "sessionStart": [
       {
         "type": "command",
-        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $cwd = Get-Location; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_START cwd=$cwd\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; $lastLearn = Get-Content \"$omcPath\\LEARNINGS.md\" -ErrorAction SilentlyContinue | Select-Object -Last 5; if ($lastLearn) { Write-Host \"[omc] Last learnings: $($lastLearn -join ' | ')\" }",
-        "timeoutSec": 5
+        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $cwd = Get-Location; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_START cwd=$cwd\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; $db = \"$omcPath\\omc-memory.db\"; if (Test-Path $db) { $topMem = \"SELECT fact_content FROM semantic_memory ORDER BY (base_importance * access_count) / (CAST(julianday('now') - julianday(last_accessed) AS REAL) + 1) DESC LIMIT 5;\" | sqlite3 $db 2>$null; if ($topMem) { Write-Host \"[omc] Top memories: $($topMem -join ' | ')\" } }; $lastLearn = Get-Content \"$omcPath\\LEARNINGS.md\" -ErrorAction SilentlyContinue | Select-Object -Last 3; if ($lastLearn) { Write-Host \"[omc] Last learnings: $($lastLearn -join ' | ')\" }",
+        "timeoutSec": 10
       }
     ],
     "sessionEnd": [
       {
         "type": "command",
-        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_END cwd=$(Get-Location)\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; Push-Location $omcPath; try { $status = git status --porcelain 2>$null; if ($status) { git add agents/ hooks.json 2>$null; $msg = \"auto-learn: $ts\"; git commit -m $msg --no-verify 2>$null; git push origin main 2>$null; Add-Content -Path \"$omcPath\\LEARNINGS.md\" -Value \"[$ts] Auto-committed: $($status -join ', ')\"; Write-Host \"[omc] Self-improved: committed agent changes\" } else { Write-Host \"[omc] No agent changes to commit\" } } finally { Pop-Location }",
-        "timeoutSec": 30
+        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_END cwd=$(Get-Location)\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; Push-Location $omcPath; try { $status = git status --porcelain 2>$null; if ($status) { git add agents/ hooks.json scripts/ 2>$null; $msg = \"auto-learn: $ts\"; git commit -m $msg --no-verify 2>$null; git push origin main 2>$null; Add-Content -Path \"$omcPath\\LEARNINGS.md\" -Value \"[$ts] Auto-committed: $($status -join ', ')\"; Write-Host \"[omc] Self-improved: committed agent changes\" } else { Write-Host \"[omc] No agent changes to commit\" }; & powershell -File \"$omcPath\\scripts\\consolidate.ps1\" 2>$null } finally { Pop-Location }",
+        "timeoutSec": 45
       }
     ],
     "preToolUse": [
       {
         "type": "command",
-        "powershell": "$input = $input | ConvertFrom-Json; $tool = $input.toolName; $args = $input.toolArgs; $dangerous = @('rm -rf', 'rm -r -force', 'Remove-Item -Recurse -Force', 'git push --force', 'git push -f', 'DROP TABLE', 'DELETE FROM', 'format', 'del /f /s', 'rd /s /q'); $isDangerous = $dangerous | Where-Object { $args -like \"*$_*\" }; if ($isDangerous -and $tool -in @('bash','shell','powershell','execute')) { @{permissionDecision='ask'; permissionDecisionReason=\"Dangerous operation detected: $isDangerous\"} | ConvertTo-Json -Compress } else { '' }",
-        "timeoutSec": 3
+        "powershell": "$inputObj = $input | ConvertFrom-Json; $tool = $inputObj.toolName; $args = $inputObj.toolArgs | ConvertTo-Json -Compress; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; $db = \"$omcPath\\omc-memory.db\"; $dangerous = @('rm -rf','rm -r -force','Remove-Item -Recurse -Force','git push --force','git push -f','DROP TABLE','DELETE FROM','format','del /f /s','rd /s /q'); $isDangerous = $dangerous | Where-Object { $args -like \"*$_*\" }; if ($isDangerous -and $tool -in @('bash','shell','powershell','execute')) { @{permissionDecision='ask';permissionDecisionReason=\"Dangerous operation detected: $isDangerous\"} | ConvertTo-Json -Compress } elseif (Test-Path $db) { $domain = if ($args -match 'git') {'git'} elseif ($args -match 'opus') {'agent'} else {''}; if ($domain) { $rules = \"SELECT action_constraint FROM meta_policy_rules WHERE task_domain='$domain' AND is_active=1;\" | sqlite3 $db 2>$null; if ($rules) { @{permissionDecision='ask';permissionDecisionReason=\"Policy check ($domain): $($rules -join '; ')\"} | ConvertTo-Json -Compress } else { '' } } else { '' } } else { '' }",
+        "timeoutSec": 5
       }
     ]
   }
