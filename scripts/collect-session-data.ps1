@@ -12,7 +12,7 @@
 .OUTPUTS
     UTF-8 JSON (stdout) conforming to the personal-advisor data contract:
       analysisDate, sessionCount, topDirectories, completedTodos,
-      agentQTable, dominantDomains, suggestedAgentNames
+      agentQTable, dominantDomains, suggestedAgentNames, mcpSignals
 
 .EXAMPLE
     powershell -File scripts\collect-session-data.ps1
@@ -45,6 +45,380 @@ function ConvertTo-JsonString {
         -replace "`n", '\n' `
         -replace "`r", '\r' `
         -replace "`t", '\t'
+}
+
+function Add-UniqueString {
+    param(
+        [System.Collections.ArrayList]$List,
+        [string]$Value
+    )
+
+    if ($null -eq $List) { return }
+    if ([string]::IsNullOrWhiteSpace($Value)) { return }
+
+    $trimmed = $Value.Trim()
+    foreach ($existing in $List) {
+        if ("$existing" -ieq $trimmed) { return }
+    }
+
+    [void]$List.Add($trimmed)
+}
+
+function Get-ObjectProperties {
+    param($InputObject)
+
+    $pairs = @()
+    if ($null -eq $InputObject) { return $pairs }
+    if ($InputObject -is [string]) { return $pairs }
+
+    if ($InputObject -is [System.Collections.IDictionary]) {
+        foreach ($key in $InputObject.Keys) {
+            $pairs += [PSCustomObject]@{
+                Name  = "$key"
+                Value = $InputObject[$key]
+            }
+        }
+        return $pairs
+    }
+
+    foreach ($prop in $InputObject.PSObject.Properties) {
+        if ($prop.MemberType -match 'Property|NoteProperty') {
+            $pairs += [PSCustomObject]@{
+                Name  = "$($prop.Name)"
+                Value = $prop.Value
+            }
+        }
+    }
+
+    return $pairs
+}
+
+function Remove-JsonComments {
+    param([string]$Text)
+
+    if ([string]::IsNullOrEmpty($Text)) { return $Text }
+
+    $sb             = New-Object System.Text.StringBuilder
+    $inString       = $false
+    $isEscaped      = $false
+    $inLineComment  = $false
+    $inBlockComment = $false
+
+    for ($i = 0; $i -lt $Text.Length; $i++) {
+        $ch   = $Text[$i]
+        $next = if ($i + 1 -lt $Text.Length) { $Text[$i + 1] } else { [char]0 }
+
+        if ($inLineComment) {
+            if ($ch -eq "`r" -or $ch -eq "`n") {
+                $inLineComment = $false
+                [void]$sb.Append($ch)
+            }
+            continue
+        }
+
+        if ($inBlockComment) {
+            if ($ch -eq '*' -and $next -eq '/') {
+                $inBlockComment = $false
+                $i++
+            }
+            continue
+        }
+
+        if ($inString) {
+            [void]$sb.Append($ch)
+
+            if ($isEscaped) {
+                $isEscaped = $false
+            } elseif ($ch -eq '\') {
+                $isEscaped = $true
+            } elseif ($ch -eq '"') {
+                $inString = $false
+            }
+            continue
+        }
+
+        if ($ch -eq '"') {
+            $inString = $true
+            [void]$sb.Append($ch)
+            continue
+        }
+
+        if ($ch -eq '/' -and $next -eq '/') {
+            $inLineComment = $true
+            $i++
+            continue
+        }
+
+        if ($ch -eq '/' -and $next -eq '*') {
+            $inBlockComment = $true
+            $i++
+            continue
+        }
+
+        [void]$sb.Append($ch)
+    }
+
+    $sb.ToString()
+}
+
+function Remove-TrailingJsonCommas {
+    param([string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+
+    $result = $Text
+    do {
+        $previous = $result
+        $result   = [regex]::Replace($result, ',(?=\s*[\}\]])', '')
+    } while ($result -ne $previous)
+
+    $result
+}
+
+function ConvertFrom-JsonLike {
+    param([string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
+
+    $normalised = Remove-JsonComments $Text
+    $normalised = Remove-TrailingJsonCommas $normalised
+
+    try {
+        return $normalised | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        return $null
+    }
+}
+
+function Test-McpHintText {
+    param([string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+
+    return (
+        $Text -imatch '\bmcp\b' -or
+        $Text -imatch 'modelcontextprotocol' -or
+        $Text -imatch 'server[-_/](github|filesystem|sqlite|postgres|mysql|browser|playwright|puppeteer|devtools|fetch|api|search|notion)'
+    )
+}
+
+function Test-McpConfigText {
+    param([string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+
+    return (
+        $Text -imatch '"[^"]*mcp[^"]*"\s*:' -or
+        $Text -imatch '\bmcpServers\b' -or
+        $Text -imatch 'modelcontextprotocol'
+    )
+}
+
+function Add-DomainTagsFromText {
+    param(
+        [string]$Text,
+        [hashtable]$State
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return }
+
+    $tagPatterns = [ordered]@{
+        browser    = 'browser|playwright|puppeteer|chrome|edge|firefox'
+        devtools   = 'devtools|chrome-devtools|inspector|debugger'
+        github     = 'github|gitlab|\bgit\b|repo|repository|pull\s*request|issues?'
+        database   = 'postgres|mysql|sqlite|sqlserver|mssql|mongodb|database|\bdb\b|redis'
+        filesystem = 'filesystem|file\s*system|\bfiles?\b|\bdirector(y|ies)\b|\bpath\b|\bfs\b'
+        api        = '\bapi\b|rest|graphql|endpoint|swagger|openapi|postman'
+        research   = 'research|search|scholar|docs|documentation|wiki|knowledge|crawl'
+        content    = 'content|blog|cms|markdown|notion|obsidian|writer|publish'
+    }
+
+    foreach ($tag in $tagPatterns.Keys) {
+        if ($Text -imatch $tagPatterns[$tag]) {
+            Add-UniqueString -List $State.domainTags -Value $tag
+        }
+    }
+}
+
+function Add-McpCommandHint {
+    param(
+        $Value,
+        [hashtable]$State
+    )
+
+    if ($null -eq $Value) { return }
+
+    $text = $null
+    if ($Value -is [string]) {
+        $text = $Value
+    } elseif ($Value -is [System.Collections.IEnumerable]) {
+        $parts = @()
+        foreach ($item in $Value) {
+            if ($null -ne $item) { $parts += "$item" }
+        }
+        $text = ($parts -join ' ').Trim()
+    } else {
+        $text = "$Value"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($text)) { return }
+
+    $compactText = ($text -replace '\s+', ' ').Trim()
+    if ($compactText.Length -gt 400) {
+        $compactText = $compactText.Substring(0, 400)
+    }
+
+    Add-UniqueString -List $State.commandHints -Value $compactText
+    Add-DomainTagsFromText -Text $compactText -State $State
+
+    $serverMatches = [regex]::Matches($compactText, '(?i)(?:@modelcontextprotocol/|server[-_/]|mcp[-_/])([a-z0-9._-]+)')
+    foreach ($match in $serverMatches) {
+        if ($match.Groups.Count -gt 1) {
+            $serverName = $match.Groups[1].Value -replace '^(server|mcp)[-_/]', ''
+            Add-UniqueString -List $State.serverNames -Value $serverName
+            Add-DomainTagsFromText -Text $serverName -State $State
+        }
+    }
+}
+
+function Collect-McpSignalsFromNode {
+    param(
+        $Node,
+        [string]$Path,
+        [bool]$McpContext,
+        [hashtable]$State
+    )
+
+    if ($null -eq $Node) { return }
+
+    if ($Node -is [string]) {
+        if ($McpContext -or (Test-McpHintText $Node)) {
+            Add-McpCommandHint -Value $Node -State $State
+        }
+        return
+    }
+
+    $pairs = Get-ObjectProperties $Node
+    if ($pairs.Count -gt 0) {
+        foreach ($pair in $pairs) {
+            $name         = "$($pair.Name)"
+            $value        = $pair.Value
+            $nextPath     = if ([string]::IsNullOrWhiteSpace($Path)) { $name } else { "$Path.$name" }
+            $lowerName    = $name.ToLowerInvariant()
+            $nameHasMcp   = ($lowerName -match '(^|[._-])mcp($|[._-])') -or ($lowerName -match 'modelcontextprotocol')
+            $nextContext  = $McpContext -or $nameHasMcp
+            $isServerProp = $lowerName -match 'servers?$'
+
+            if ($nameHasMcp -or ($McpContext -and $lowerName -match 'servers?|name|id|command|args|path|url|endpoint|transport')) {
+                Add-UniqueString -List $State.discoveredKeys -Value $nextPath
+            }
+
+            if ($nextContext -and $lowerName -match '^(name|id|servername)$' -and $value -is [string]) {
+                Add-UniqueString -List $State.serverNames -Value $value
+                Add-DomainTagsFromText -Text $value -State $State
+            }
+
+            if ($nextContext -and $lowerName -match 'command|cmd|executable|program|args') {
+                Add-McpCommandHint -Value $value -State $State
+            }
+
+            if ($nextContext -and $isServerProp) {
+                $serverPairs = Get-ObjectProperties $value
+                foreach ($serverPair in $serverPairs) {
+                    Add-UniqueString -List $State.serverNames -Value $serverPair.Name
+                    Add-DomainTagsFromText -Text $serverPair.Name -State $State
+                }
+            }
+
+            if ($value -is [string] -and (($nextContext -and (Test-McpHintText $value)) -or ($nameHasMcp -and -not [string]::IsNullOrWhiteSpace($value)))) {
+                Add-McpCommandHint -Value $value -State $State
+            }
+
+            Collect-McpSignalsFromNode -Node $value -Path $nextPath -McpContext $nextContext -State $State
+        }
+        return
+    }
+
+    if ($Node -is [System.Collections.IEnumerable] -and -not ($Node -is [string])) {
+        $index = 0
+        foreach ($item in $Node) {
+            $nextPath = if ([string]::IsNullOrWhiteSpace($Path)) { "[$index]" } else { "$Path[$index]" }
+            Collect-McpSignalsFromNode -Node $item -Path $nextPath -McpContext $McpContext -State $State
+            $index++
+        }
+    }
+}
+
+function Get-McpSignals {
+    $state = @{
+        configPaths    = New-Object System.Collections.ArrayList
+        mcpConfigPaths = New-Object System.Collections.ArrayList
+        discoveredKeys = New-Object System.Collections.ArrayList
+        serverNames    = New-Object System.Collections.ArrayList
+        commandHints   = New-Object System.Collections.ArrayList
+        domainTags     = New-Object System.Collections.ArrayList
+    }
+
+    $candidatePaths = New-Object System.Collections.ArrayList
+    Add-UniqueString -List $candidatePaths -Value "$env:USERPROFILE\.copilot\config.json"
+    Add-UniqueString -List $candidatePaths -Value "$env:APPDATA\Code\User\settings.json"
+
+    $copilotRoot = "$env:USERPROFILE\.copilot"
+    if (Test-Path $copilotRoot) {
+        $jsonFiles = Get-ChildItem $copilotRoot -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.json', '.jsonc' }
+
+        foreach ($file in $jsonFiles) {
+            $pathText = $file.FullName
+            $shouldInspect = $pathText -imatch '(mcp|modelcontextprotocol|config|settings|server).*\.jsonc?$'
+
+            if (-not $shouldInspect) {
+                $rawPreview = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                if (-not [string]::IsNullOrWhiteSpace($rawPreview) -and (Test-McpConfigText $rawPreview)) {
+                    $shouldInspect = $true
+                }
+            }
+
+            if ($shouldInspect) {
+                Add-UniqueString -List $candidatePaths -Value $pathText
+            }
+        }
+    }
+
+    foreach ($candidatePath in $candidatePaths) {
+        if (-not (Test-Path $candidatePath)) { continue }
+
+        Add-UniqueString -List $state.configPaths -Value $candidatePath
+
+        $raw = Get-Content $candidatePath -Raw -ErrorAction SilentlyContinue
+        if ([string]::IsNullOrWhiteSpace($raw)) { continue }
+
+        $beforeSignalCount = $state.discoveredKeys.Count + $state.serverNames.Count + $state.domainTags.Count + $state.commandHints.Count
+
+        $parsed = ConvertFrom-JsonLike $raw
+        if ($null -ne $parsed) {
+            Collect-McpSignalsFromNode -Node $parsed -Path '' -McpContext $false -State $state
+        } elseif (Test-McpHintText $raw) {
+            Add-UniqueString -List $state.discoveredKeys -Value 'textScanFallback'
+            Add-McpCommandHint -Value $raw -State $state
+        }
+
+        $afterSignalCount = $state.discoveredKeys.Count + $state.serverNames.Count + $state.domainTags.Count + $state.commandHints.Count
+        if ((Test-McpConfigText $raw) -or ($afterSignalCount -gt $beforeSignalCount)) {
+            Add-UniqueString -List $state.mcpConfigPaths -Value $candidatePath
+        }
+    }
+
+    Write-Diag "MCP config paths: $($state.configPaths.Count); servers: $($state.serverNames.Count); tags: $($state.domainTags.Count)"
+
+    return [PSCustomObject][ordered]@{
+        detectedConfigPath = if ($state.mcpConfigPaths.Count -gt 0) { "$($state.mcpConfigPaths[0])" } elseif ($state.configPaths.Count -gt 0) { "$($state.configPaths[0])" } else { "" }
+        configPaths        = @($state.configPaths)
+        discoveredKeys     = @($state.discoveredKeys)
+        serverNames        = @($state.serverNames)
+        commandHints       = @($state.commandHints)
+        domainTags         = @($state.domainTags)
+    }
 }
 
 # ─── A. Locate sqlite3 ────────────────────────────────────────────────────────
@@ -216,9 +590,13 @@ if ($sqlite3) {
 #   Build a single text corpus from directory names + todo text, then match
 #   domain keyword groups. Order matters: more specific domains listed first.
 
+$mcpSignals = Get-McpSignals
+
 $corpus = (
     @(($topDirectories | ForEach-Object { $_.path })) +
-    @(($completedTodos  | ForEach-Object { "$($_.title) $($_.description)" }))
+    @(($completedTodos  | ForEach-Object { "$($_.title) $($_.description)" })) +
+    @($mcpSignals.serverNames) +
+    @($mcpSignals.commandHints)
 ) -join ' '
 
 # domain → keyword patterns (regex; \b = word boundary)
@@ -237,6 +615,12 @@ $dominantDomains = @(
     }
 )
 
+foreach ($mcpDomain in $mcpSignals.domainTags) {
+    if ($dominantDomains -notcontains $mcpDomain) {
+        $dominantDomains += $mcpDomain
+    }
+}
+
 Write-Diag "dominantDomains: $($dominantDomains -join ', ')"
 
 # ─── F. suggestedAgentNames ───────────────────────────────────────────────────
@@ -249,6 +633,12 @@ $agentNameMap = @{
     api        = 'my-api-specialist'
     devops     = 'my-devops-engineer'
     content    = 'my-content-creator'
+    browser    = 'my-browser-automation-specialist'
+    devtools   = 'my-devtools-debugger'
+    github     = 'my-github-workflow-optimizer'
+    database   = 'my-database-specialist'
+    filesystem = 'my-filesystem-automation-specialist'
+    research   = 'my-research-assistant'
 }
 
 $suggestedAgentNames = @(
@@ -269,4 +659,5 @@ $suggestedAgentNames = @(
     agentQTable         = @($agentQTable)
     dominantDomains     = @($dominantDomains)
     suggestedAgentNames = @($suggestedAgentNames)
+    mcpSignals          = $mcpSignals
 } | ConvertTo-Json -Depth 5
