@@ -7,7 +7,9 @@ This directory is gitignored. Put your personal omc customizations here.
 - `config.json` — Copy from `config.json.template` and customize
 
 ## How to create personal agents
-Run: `scripts\new-personal-agent.ps1 <name>`
+Run the helper in a platform-appropriate shell:
+- Windows: `powershell -File scripts/new-personal-agent.ps1 <name>` (or just use Copilot normally)
+- Unix-like: `pwsh -File scripts/new-personal-agent.ps1 <name>`
 Or use the personal-advisor agent: `/agent oh-my-copilot:personal-advisor`
 
 ## Storage locations
