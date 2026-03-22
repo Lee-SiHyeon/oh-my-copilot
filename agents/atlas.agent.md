@@ -30,6 +30,7 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 | `@oracle` | Architecture advice, hard debugging (read-only) |
 | `@metis` | Pre-planning when requirements are ambiguous |
 | `@momus` | Review a plan before executing |
+| `@nlm-researcher` | NotebookLM research — query 17 notebooks or auto-build new ones from web |
 
 ### Model Selection Guide
 | Model | Multiplier | Best For |
@@ -114,102 +115,26 @@ Use when working across multiple repositories simultaneously.
 
 ---
 
-## nlm (NotebookLM CLI) — Research Tool
+## nlm (NotebookLM CLI) — Delegate to @nlm-researcher
 
-`nlm` is at `~\.local\bin\nlm.exe`. 17 notebooks with AI research ready to query.
+Use `@nlm-researcher` instead of calling nlm directly. The agent handles all Windows encoding quirks, alias management, and research workflows automatically.
 
-### ⚠️ Windows Setup (REQUIRED before every nlm call)
-```powershell
-$env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$env:PYTHONIOENCODING = "utf-8"
-```
-Profile is now permanent (`Microsoft.PowerShell_profile.ps1`) but encoding must be set per-session.
+### When to delegate to @nlm-researcher
+- Deep research on AI patterns, frameworks, architectures
+- Building a new notebook on any topic (auto web-search, ~2 min)
+- Multi-turn research conversations
+- Saving findings as persistent notes
 
-### ⚠️ Call Pattern (stderr must NOT mix with stdout)
-```powershell
-# CORRECT — direct exe invocation
-$result = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query <alias> "question" --json | ConvertFrom-Json
-
-# WRONG — 2>&1 breaks JSON parsing
-$result = nlm notebook query <alias> "question" --json 2>&1 | ConvertFrom-Json
-```
-
-### Notebook Aliases (pre-configured)
-| Alias | Notebook |
+### Available notebooks (via alias)
+| Alias | Content |
 |-------|---------|
-| `claude-flow` | Claude-Flow v3: ReasoningBank, Q-Learning, 4-step pipeline |
+| `claude-flow` | Claude-Flow v3: ReasoningBank, Q-Learning, hooks |
 | `ai-agents` | AI Agent Frameworks, FLOW, HITL |
-| `rag` | RAG Architectures & AI Data Pipelines |
-| `google-ai` | Google Antigravity: Agentic AI Platforms |
+| `rag` | RAG Architectures |
+| `google-ai` | Google Antigravity: Agentic AI |
+| `omc-patterns` | AI self-improvement, memory patterns (20 sources) |
 
-### Key Commands
-```powershell
-# Query (always use --json for structured output)
-$r = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query claude-flow "question" --json | ConvertFrom-Json
-$r.value.answer   # answer text
-$r.value.conversation_id  # use for follow-up
-
-# Follow-up in same conversation
-$r2 = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query claude-flow "follow-up" --json --conversation-id $cid | ConvertFrom-Json
-
-# List notebooks
-& "$env:USERPROFILE\.local\bin\nlm.exe" notebook list
-
-# Add source (URL, text, file, youtube)
-& "$env:USERPROFILE\.local\bin\nlm.exe" source add claude-flow --url "https://..." --wait
-& "$env:USERPROFILE\.local\bin\nlm.exe" source add claude-flow --text "content" --title "title"
-
-# Create note (no --json flag - not supported)
-& "$env:USERPROFILE\.local\bin\nlm.exe" note create claude-flow --content "content" --title "title"
-
-# List notes
-& "$env:USERPROFILE\.local\bin\nlm.exe" note list claude-flow
-```
-
-### Limitations Discovered
-- `--json` flag: Only on `notebook query`, `notebook list`, `source list` — NOT on `note create`
-- `alias set`: Works for notebook/source IDs only — note IDs cause API error code 5
-- Default text formatter has a bug (UnicodeEncodeError cp949) → always use `--json`
-
-### Auto-Research Workflow (Build a notebook from scratch)
-```powershell
-# Step 1: Create notebook
-$nb = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook create "Topic Name" 2>&1
-# Output: "✓ Created notebook: <title> ID: <uuid>"
-$nbId = "<uuid-from-output>"
-
-# Step 2: Register alias
-& "$env:USERPROFILE\.local\bin\nlm.exe" alias set <alias> $nbId
-
-# Step 3: Start research (web auto-search)
-& "$env:USERPROFILE\.local\bin\nlm.exe" research start "query keywords" --notebook-id $nbId --mode fast
-# fast = ~30s, ~10 sources | deep = ~5min, ~40 sources
-# ⚠️ ALWAYS import before starting new research — unimported results get OVERWRITTEN
-
-# Step 4: Wait ~35s then check
-& "$env:USERPROFILE\.local\bin\nlm.exe" research status $nbId
-# Output: "Status: completed, Sources found: 10"
-
-# Step 5: Import
-& "$env:USERPROFILE\.local\bin\nlm.exe" research import $nbId <task-id>
-
-# Step 6: Query immediately (works right after import)
-$r = & "$env:USERPROFILE\.local\bin\nlm.exe" notebook query <alias> "question" --json | ConvertFrom-Json
-$r.value.answer
-```
-
-### Verified notebooks (auto-built 2026-03-22)
-| Alias | Sources | Topics |
-|-------|---------|--------|
-| `omc-patterns` | 20 | AI self-improvement, hooks/memory, Memento-Skills, Metacog, MemGPT |
-
-### Use nlm for research when
-- Need deep analysis from pre-loaded curated notebooks
-- Asking about Claude-Flow, RAG, AI agent patterns
-- Need conversation continuity (multi-turn research)
-- Want to store findings as notes inside NotebookLM
-- Need to build a fresh research notebook on any topic in <2 minutes
+> Full nlm CLI reference: `agents/nlm-researcher.agent.md`
 
 ---
 
