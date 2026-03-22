@@ -4,6 +4,19 @@ function Get-PluginRoot {
     Split-Path -Parent $PSScriptRoot
 }
 
+function Get-HomeDirectory {
+    if (-not [string]::IsNullOrWhiteSpace($HOME)) { return $HOME }
+    return [Environment]::GetFolderPath('UserProfile')
+}
+
+function Get-CopilotRoot {
+    Join-Path (Get-HomeDirectory) '.copilot'
+}
+
+function Get-UserStateRoot {
+    Join-Path (Get-CopilotRoot) 'oh-my-copilot'
+}
+
 function Test-IsWindows {
     $env:OS -eq 'Windows_NT'
 }
@@ -241,6 +254,33 @@ function Test-AgentPolicyContext {
     return $true
 }
 
+function Ensure-OmcMemoryDb {
+    param(
+        [string]$Sqlite3Path
+    )
+
+    $stateRoot = Get-UserStateRoot
+    $dbPath    = Join-Path $stateRoot 'omc-memory.db'
+    $legacyDb  = Join-Path (Get-PluginRoot) 'omc-memory.db'
+
+    if (-not (Test-Path $stateRoot)) {
+        [void](New-Item -ItemType Directory -Path $stateRoot -Force)
+    }
+
+    if (-not (Test-Path $dbPath)) {
+        if (Test-Path $legacyDb) {
+            Copy-Item -Path $legacyDb -Destination $dbPath -Force
+        } elseif (-not [string]::IsNullOrWhiteSpace($Sqlite3Path)) {
+            $initScript = Join-Path $PSScriptRoot 'init-memory.ps1'
+            if (Test-Path $initScript) {
+                [void](& $initScript -DbPath $dbPath 2>$null)
+            }
+        }
+    }
+
+    return $dbPath
+}
+
 $rawInput = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($rawInput)) { return }
 
@@ -291,9 +331,8 @@ if (($toolName -in $shellLikeToolNames) -and $matchedDangerousPatterns.Count -gt
     return
 }
 
-$pluginRoot = Get-PluginRoot
-$dbPath     = Join-Path $pluginRoot 'omc-memory.db'
-$sqlite3    = Resolve-Sqlite3Path
+$sqlite3 = Resolve-Sqlite3Path
+$dbPath  = Ensure-OmcMemoryDb -Sqlite3Path $sqlite3
 
 if (-not $sqlite3 -or -not (Test-Path $dbPath)) { return }
 

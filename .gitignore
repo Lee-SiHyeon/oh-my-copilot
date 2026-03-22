@@ -7,7 +7,7 @@ local/agents/*
 !local/config.json.template
 !local/agents/.gitkeep
 
-# Per-user SQLite memory DB (regenerate with scripts/init-memory.ps1)
+# Legacy per-user SQLite memory DB location from pre-user-local versions
 omc-memory.db
 
 # Personal agent files accidentally placed in agents/

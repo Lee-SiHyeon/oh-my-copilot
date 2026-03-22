@@ -14,6 +14,19 @@ function Get-PluginRoot {
     Split-Path -Parent $PSScriptRoot
 }
 
+function Get-HomeDirectory {
+    if (-not [string]::IsNullOrWhiteSpace($HOME)) { return $HOME }
+    return [Environment]::GetFolderPath('UserProfile')
+}
+
+function Get-CopilotRoot {
+    Join-Path (Get-HomeDirectory) '.copilot'
+}
+
+function Get-UserStateRoot {
+    Join-Path (Get-CopilotRoot) 'oh-my-copilot'
+}
+
 function Test-IsWindows {
     $env:OS -eq 'Windows_NT'
 }
@@ -54,7 +67,19 @@ function Resolve-Sqlite3Path {
 }
 
 if ([string]::IsNullOrWhiteSpace($DbPath)) {
-    $DbPath = Join-Path (Get-PluginRoot) 'omc-memory.db'
+    $DbPath = Join-Path (Get-UserStateRoot) 'omc-memory.db'
+}
+
+$parentDirectory = Split-Path -Parent $DbPath
+if (-not [string]::IsNullOrWhiteSpace($parentDirectory) -and -not (Test-Path $parentDirectory)) {
+    [void](New-Item -ItemType Directory -Path $parentDirectory -Force)
+}
+
+$legacyDbPath = Join-Path (Get-PluginRoot) 'omc-memory.db'
+if (($DbPath -ne $legacyDbPath) -and -not (Test-Path $DbPath) -and (Test-Path $legacyDbPath)) {
+    Copy-Item -Path $legacyDbPath -Destination $DbPath -Force
+    Write-Host "[omc] Migrated legacy memory DB to user-local state: $DbPath"
+    exit 0
 }
 
 $sqlite3 = Resolve-Sqlite3Path
