@@ -4,8 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $cwd = Get-Location; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_START cwd=$cwd\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; $db = \"$omcPath\\omc-memory.db\"; if (Test-Path $db) { $topMem = \"SELECT fact_content FROM semantic_memory ORDER BY (base_importance * access_count) / (CAST(julianday('now') - julianday(last_accessed) AS REAL) + 1) DESC LIMIT 5;\" | sqlite3 $db 2>$null; if ($topMem) { Write-Host \"[omc] Top memories: $($topMem -join ' | ')\" } }; $lastLearn = Get-Content \"$omcPath\\LEARNINGS.md\" -ErrorAction SilentlyContinue | Select-Object -Last 3; if ($lastLearn) { Write-Host \"[omc] Last learnings: $($lastLearn -join ' | ')\" }",
-        "timeoutSec": 10
+        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $cwd = Get-Location; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_START cwd=$cwd\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; $db = \"$omcPath\\omc-memory.db\"; if (Test-Path $db) { $topMem = \"SELECT fact_content FROM semantic_memory ORDER BY (base_importance * access_count) / (CAST(julianday('now') - julianday(last_accessed) AS REAL) + 1) DESC LIMIT 5;\" | sqlite3 $db 2>$null; if ($topMem) { Write-Host \"[omc] Top memories: $($topMem -join ' | ')\" } }; $lastLearn = Get-Content \"$omcPath\\LEARNINGS.md\" -ErrorAction SilentlyContinue | Select-Object -Last 3; if ($lastLearn) { Write-Host \"[omc] Last learnings: $($lastLearn -join ' | ')\" }; $personalDir = \"$HOME\\.copilot\\agents\"; if (Test-Path $personalDir) { $myAgents = Get-ChildItem \"$personalDir\\*.agent.md\" -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName -replace '\\.agent$', '' }; if ($myAgents) { Write-Host \"[omc] Your personal agents: $($myAgents -join ', ')\" } else { Write-Host \"[omc] No personal agents yet. Run: /agent oh-my-copilot:personal-advisor\" } }",
+        "timeoutSec": 15
       }
     ],
     "sessionEnd": [
