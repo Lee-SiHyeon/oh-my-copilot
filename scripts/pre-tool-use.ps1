@@ -211,6 +211,12 @@ $matchedDangerousPatterns = @(
     }
 )
 
+$matchedDangerousGitPatterns = @(
+    $matchedDangerousPatterns | Where-Object {
+        $_ -like 'git *'
+    }
+)
+
 if (($toolName -in @('bash', 'shell', 'powershell', 'execute')) -and $matchedDangerousPatterns.Count -gt 0) {
     Write-PermissionDecision -Decision 'ask' -Reason "Dangerous operation detected: $($matchedDangerousPatterns -join '; ')"
     return
@@ -223,7 +229,7 @@ $sqlite3    = Resolve-Sqlite3Path
 if (-not $sqlite3 -or -not (Test-Path $dbPath)) { return }
 
 $domain = ''
-if ($toolArgs -match '\bgit\b') {
+if ($matchedDangerousGitPatterns.Count -gt 0) {
     $domain = 'git'
 } elseif (Test-AgentPolicyContext -ToolName $toolName -ToolArgsObject $toolArgsObject) {
     $domain = 'agent'
