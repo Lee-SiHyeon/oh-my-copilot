@@ -68,6 +68,80 @@ function Write-PermissionDecision {
     } | ConvertTo-Json -Compress
 }
 
+function Get-ScalarToolArgEntries {
+    param(
+        [object]$Value,
+        [string]$Path = ''
+    )
+
+    if ($null -eq $Value) { return @() }
+
+    if ($Value -is [System.Collections.IDictionary]) {
+        $entries = @()
+        foreach ($key in $Value.Keys) {
+            $childPath = if ([string]::IsNullOrWhiteSpace($Path)) { "$key" } else { "$Path.$key" }
+            $entries += Get-ScalarToolArgEntries -Value $Value[$key] -Path $childPath
+        }
+        return $entries
+    }
+
+    if ($Value -is [System.Management.Automation.PSCustomObject]) {
+        $entries = @()
+        foreach ($property in $Value.PSObject.Properties) {
+            $childPath = if ([string]::IsNullOrWhiteSpace($Path)) { $property.Name } else { "$Path.$($property.Name)" }
+            $entries += Get-ScalarToolArgEntries -Value $property.Value -Path $childPath
+        }
+        return $entries
+    }
+
+    if (($Value -is [System.Collections.IEnumerable]) -and -not ($Value -is [string])) {
+        $entries = @()
+        $index = 0
+        foreach ($item in $Value) {
+            $childPath = if ([string]::IsNullOrWhiteSpace($Path)) { "[$index]" } else { "$Path[$index]" }
+            $entries += Get-ScalarToolArgEntries -Value $item -Path $childPath
+            $index++
+        }
+        return $entries
+    }
+
+    return @([PSCustomObject]@{
+        Path  = $Path
+        Value = "$Value"
+    })
+}
+
+function Test-AgentPolicyContext {
+    param(
+        [string]$ToolName,
+        [object]$ToolArgsObject
+    )
+
+    if ($ToolName -imatch '(^|[-_])(agent|delegate|delegation|subagent|model[-_]?select(?:ion)?)([-_]|$)') {
+        return $true
+    }
+
+    $scalarEntries = Get-ScalarToolArgEntries -Value $ToolArgsObject
+    if ($scalarEntries.Count -eq 0) { return $false }
+
+    $opusPattern = '(?i)\bclaude-opus(?:-[a-z0-9.]+)?\b|\bopus(?:-[a-z0-9.]+)?\b'
+    if (@($scalarEntries | Where-Object { $_.Value -match $opusPattern }).Count -gt 0) {
+        return $true
+    }
+
+    $agentFieldPattern = '(?i)(^|\.)(agent|agentname|subagent|delegate|delegateto|delegation|model|modelname|modelid|modelselection|selectedmodel|assistant)\b'
+    if (@(
+            $scalarEntries | Where-Object {
+                $_.Path -match $agentFieldPattern -and
+                -not [string]::IsNullOrWhiteSpace($_.Value)
+            }
+        ).Count -gt 0) {
+        return $true
+    }
+
+    return $false
+}
+
 $rawInput = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($rawInput)) { return }
 
@@ -78,9 +152,10 @@ try {
 }
 
 $toolName = "$($inputObject.toolName)"
+$toolArgsObject = $inputObject.toolArgs
 $toolArgs = ''
-if ($null -ne $inputObject.toolArgs) {
-    $toolArgs = $inputObject.toolArgs | ConvertTo-Json -Compress -Depth 10
+if ($null -ne $toolArgsObject) {
+    $toolArgs = $toolArgsObject | ConvertTo-Json -Compress -Depth 10
 }
 
 $dangerousPatterns = @(
@@ -116,7 +191,7 @@ if (-not $sqlite3 -or -not (Test-Path $dbPath)) { return }
 $domain = ''
 if ($toolArgs -match '\bgit\b') {
     $domain = 'git'
-} elseif ($toolArgs -imatch '\bopus\b|agent|delegation') {
+} elseif (Test-AgentPolicyContext -ToolName $toolName -ToolArgsObject $toolArgsObject) {
     $domain = 'agent'
 } elseif ($toolArgs -imatch 'rm\s+-rf|remove-item\b.*-recurse|del\s+/f\s+/s|rd\s+/s\s+/q') {
     $domain = 'file_io'
