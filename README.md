@@ -1,109 +1,157 @@
 # oh-my-copilot
 
-> oh-my-opencode를 GitHub Copilot CLI에 포팅한 멀티에이전트 오케스트레이션 플러그인
+> oh-my-opencode를 GitHub Copilot CLI에 포팅한 프로덕션급 멀티에이전트 오케스트레이션 플러그인
 
 [![GitHub stars](https://img.shields.io/github/stars/Lee-SiHyeon/oh-my-copilot?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot/stargazers)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[oh-my-opencode](https://github.com/code-yeongyu/oh-my-openagent)의 핵심 철학을 GitHub Copilot CLI SKILL.md 포맷으로 이식했습니다.
+---
+
+## 📖 개요
+
+**oh-my-copilot**은 [oh-my-opencode](https://github.com/code-yeongyu/oh-my-openagent)의 멀티에이전트 철학을 GitHub Copilot CLI 환경으로 완전히 이식한 플러그인입니다.
+
+**v2.0.0**부터는 SKILL.md 기반의 레거시 아키텍처에서 **`agents/*.agent.md` 기반의 에이전트 시스템**으로 전면 재설계되었습니다.
+
+- **마스터 오케스트레이터**: `@atlas` — 모든 작업을 하위 에이전트에 위임합니다
+- **12개 전문 에이전트**: 역할별로 분리된 단일 책임 에이전트 팀
+- **Fleet 패턴**: `/fleet` 명령으로 복수 에이전트를 병렬 실행
+- **안전 훅**: `preToolUse` 훅으로 위험 명령 실행 전 자동 확인 요청
+- **자기개선 프로토콜**: 에이전트가 직접 자신의 `.agent.md`를 수정해 역량을 축적
+
+> ⚠️ `skills/` 디렉터리의 레거시 스킬들은 하위 호환을 위해 유지되지만, 주 시스템은 `agents/`입니다.
 
 ---
 
 ## 🚀 빠른 시작
 
-```bash
-# 플러그인 디렉토리에 클론
-git clone https://github.com/Lee-SiHyeon/oh-my-copilot ~/.copilot/installed-plugins/oh-my-copilot
-```
-
-Copilot CLI를 재시작하면 바로 사용 가능합니다.
-
----
-
-## ✨ 스킬
-
-| 스킬 | 트리거 | 설명 |
-|------|--------|------|
-| `/ultrawork` | `ultrawork`, `ulw`, `다 해줘` | 원커맨드 풀 오케스트레이션 |
-| `/prometheus` | `계획 세워줘`, `플래닝`, `인터뷰` | 전략 플래닝 + 인터뷰 모드 |
-| `/sisyphus` | `오케스트레이션`, `태스크 분해` | 메인 오케스트레이터 |
-| `/hephaestus` | `딥워크`, `알아서 해줘` | 자율 딥워커 (허락 구하기 금지) |
-| `/ralph-loop` | `완료까지`, `루프`, `계속 해줘` | 자기교정 반복 루프 |
-| `/init-deep` | `AGENTS.md 만들어`, `init-deep` | 계층형 AGENTS.md 생성 |
-| `/github-triage` | `triage`, `이슈 분석` | GitHub read-only 트리아지 |
-
----
-
-## 📦 설치
-
-### 자동 설치
+### Linux / macOS
 
 ```bash
 git clone https://github.com/Lee-SiHyeon/oh-my-copilot ~/.copilot/installed-plugins/oh-my-copilot
 ```
 
-### 수동 설치 (Windows)
+### Windows (PowerShell)
 
 ```powershell
 git clone https://github.com/Lee-SiHyeon/oh-my-copilot "$env:USERPROFILE\.copilot\installed-plugins\oh-my-copilot"
 ```
 
----
+설치 후 Copilot CLI를 **재시작**하면 12개 에이전트가 즉시 사용 가능합니다.
 
-## 🤖 에이전트 팀
-
-### Sisyphus (오케스트레이터)
-복잡한 태스크를 원자적 서브태스크로 분해하고 병렬로 실행합니다.
-- TodoWrite 강제 적용 — 모든 비-trivial 태스크에서
-- 실시간 진행 추적
-- 독립 태스크는 병렬 실행
-
-### Hephaestus (딥워커)
-목표만 주면 스스로 탐색하고 완료까지 실행하는 자율 딥워커.
-- 허락 구하기 금지 — Just Do It
-- Senior Staff Engineer 수준의 자율성
-- 탐색 → 구현 → 검증 전체 루프
-
-### Prometheus (플래닝)
-코드 짜기 전에 인터뷰로 요구사항을 명확히 하는 전략 플래너.
-- Intent classification (trivial → architecture)
-- 코드베이스 탐색 먼저, 질문 나중
-- `.sisyphus/plans/`에 계획 파일 생성
-
-### Ralph Loop (자기교정)
-완료될 때까지 자동으로 반복 실행하는 루프.
-- `<promise>DONE</promise>` 태그로만 종료
-- TypeScript 에러, 테스트 실패 등 반복 수정에 최적
-- ULW Loop 모드: Oracle 검증 추가
+```
+@atlas "REST API 인증 시스템 전체 구현해줘"
+```
 
 ---
 
-## 📖 사용 예시
+## 🤖 에이전트 팀 (12개)
+
+| 에이전트 | 역할 | Best For |
+|---|---|---|
+| **Atlas** 🗺️ | 마스터 오케스트레이터 | 모든 작업의 진입점. `/fleet`과 `@에이전트명`으로 하위 에이전트에 위임 |
+| **Sisyphus** ⚙️ | 복잡한 멀티태스크 오케스트레이터 | 여러 단계가 얽힌 복잡한 작업 분해 및 병렬 실행 |
+| **Sisyphus-Junior** 🔩 | 집중형 원자 태스크 실행기 | 단일 명확한 태스크 완수, 위임 없이 직접 실행 |
+| **Hephaestus** 🔨 | 딥 구현 전문가 | 코드 구현, 리팩토링, 버그 수정 — 탐색→구현→검증 전체 루프 |
+| **Prometheus** 🔥 | 전략 플래너 | 요구사항 인터뷰, 태스크 분해, 실행 계획 수립 |
+| **Oracle** 🔮 | 아키텍처 어드바이저 (읽기전용) | 하드 디버깅, 아키텍처 설계 검토 — 코드 수정 없이 조언만 |
+| **Metis** 🧠 | 사전 계획 컨설턴트 | 숨겨진 의도와 모호함 식별, 실행 전 리스크 도출 |
+| **Momus** 🎭 | 계획 리뷰어 | 계획서를 받아 `OKAY` 또는 `REJECT` + 최대 3개 이슈 출력 |
+| **Explore** 🔍 | 코드베이스 탐색기 | 컨텍스트 기반 grep, 파일 구조 파악, 의존성 추적 |
+| **Librarian** 📚 | 외부 라이브러리 리서치 | 라이브러리 문서 조사, API 사용법, 패키지 비교 |
+| **Multimodal-Looker** 👁️ | 이미지·문서 분석 에이전트 | 스크린샷 분석, PDF/이미지에서 정보 추출, UI 리뷰 |
+| **Ultrawork** ⚡ | 풀 오케스트레이션 모드 | 플래닝 + 병렬 실행 + 검증을 한 번에 — 원커맨드 완전 자동화 |
+
+### 에이전트 호출 방법
 
 ```
-/ultrawork "REST API 인증 시스템 구현해줘"
+@atlas "새 기능 추가해줘"                     ← 항상 Atlas부터 시작
+@hephaestus "auth 모듈 리팩토링해줘"           ← 특정 에이전트 직접 호출
+@oracle "이 아키텍처 설계 검토해줘"             ← 읽기전용 자문
+@metis "이 요구사항에 숨겨진 함정 찾아줘"       ← 사전 리스크 파악
+@momus "이 계획서 검토해줘"                    ← OKAY / REJECT 빠른 판정
 ```
-→ Prometheus 인터뷰 → 태스크 분해 → 병렬 구현 → 검증
+
+---
+
+## 💰 모델 비용 가이드
+
+에이전트별로 적절한 모델을 선택해 **비용을 최적화**하세요.
+
+| 티어 | 모델 | 비용 | 추천 용도 |
+|---|---|---|---|
+| 🥇 **기본값** | `claude-sonnet-4-5` | 중간 | 대부분의 구현 작업, 기본 오케스트레이션 |
+| 🥈 **저렴** | `claude-haiku-3-5` | 낮음 | 단순 원자 태스크, Sisyphus-Junior, Explore |
+| 🆓 **무료** | `gpt-4.1-mini` | **$0** | 가볍고 빠른 작업, 비용 절감 최우선 시 |
+| 🆓 **무료** | `gpt-4.1` | **$0** | 무료이면서 고품질이 필요할 때 |
+| 🧠 **고성능** | `claude-opus-4-5` | **매우 높음** | 극한의 복잡도가 필요한 경우에만 |
+| ❌ **금지** | `claude-opus-3` | **과금 폭탄** | **절대 사용 금지** — 비용 대비 효율 최악 |
+
+> 💡 **권장 전략**: 일반 작업은 `gpt-4.1` (무료) → 복잡한 구현은 `sonnet-4-5` → 극한 작업만 `opus-4-5`
+
+---
+
+## 🚢 Fleet 패턴
+
+`/fleet`으로 여러 에이전트를 **병렬로 동시 실행**해 작업 속도를 극대화합니다.
 
 ```
-/prometheus "새 기능 추가 계획 세워줘"
+@atlas "/fleet 다음 3개 태스크를 병렬로 실행해줘:
+  1. @hephaestus - auth 모듈 구현
+  2. @hephaestus - database 스키마 마이그레이션
+  3. @prometheus - API 문서 계획 수립"
 ```
-→ 코드베이스 탐색 → 인터뷰 → `.sisyphus/plans/`에 계획 저장
+
+### Fleet 실행 흐름
 
 ```
-/ralph-loop "모든 TypeScript 에러 수정"
+Atlas (조율)
+  ├── @hephaestus ──→ auth 구현 완료
+  ├── @hephaestus ──→ DB 마이그레이션 완료   ← 동시 실행
+  └── @prometheus ──→ API 문서 계획 완료
+        │
+        ▼
+  @momus 계획 검토 → OKAY
+        │
+        ▼
+  @oracle 아키텍처 최종 검증
 ```
-→ `tsc --noEmit` → 에러 수정 → 반복 → 에러 0개 되면 완료
+
+### 직렬 의존 패턴
 
 ```
-/init-deep
+@metis → @prometheus → @momus → @hephaestus → @oracle
+(리스크 파악) → (계획) → (검토) → (구현) → (최종 검증)
 ```
-→ 프로젝트 전체 분석 → 복잡도 점수화 → 계층형 AGENTS.md 생성
 
+---
+
+## 🛡️ 안전 훅
+
+`hooks.json`의 `preToolUse` 훅이 **위험 명령 실행 전 자동으로 개입**합니다.
+
+### 감지하는 위험 패턴
+
+| 카테고리 | 감지 패턴 |
+|---|---|
+| **파일 삭제** | `rm -rf`, `rm -r -force`, `Remove-Item -Recurse -Force`, `del /f /s`, `rd /s /q` |
+| **강제 푸시** | `git push --force`, `git push -f` |
+| **DB 파괴** | `DROP TABLE`, `DELETE FROM` |
+| **시스템 포맷** | `format` |
+
+위험 패턴이 감지되면 에이전트 실행이 **자동으로 중단**되고 사용자에게 확인을 요청합니다.
+
+```json
+{
+  "permissionDecision": "ask",
+  "permissionDecisionReason": "Dangerous operation detected: rm -rf"
+}
 ```
-/github-triage
-```
-→ 오픈 이슈/PR 분석 → 병렬 에이전트로 분류 → `/tmp/`에 보고서 저장
+
+### 세션 로깅
+
+`sessionStart` 훅이 매 세션 시작 시 `~/.copilot/session.log`에 타임스탬프와 작업 디렉터리를 기록합니다. 에이전트가 어디서 무엇을 했는지 추적 가능합니다.
 
 ---
 
@@ -111,32 +159,46 @@ git clone https://github.com/Lee-SiHyeon/oh-my-copilot "$env:USERPROFILE\.copilo
 
 ```
 oh-my-copilot/
-├── SKILL.md                    ← 플러그인 인덱스
-├── ultrawork/SKILL.md          ← /ultrawork 스킬
-├── prometheus/SKILL.md         ← /prometheus 스킬
-├── sisyphus/SKILL.md           ← /sisyphus 스킬
-├── hephaestus/SKILL.md         ← /hephaestus 스킬
-├── ralph-loop/SKILL.md         ← /ralph-loop 스킬
-├── init-deep/SKILL.md          ← /init-deep 스킬
-├── github-triage/SKILL.md      ← /github-triage 스킬
-└── .agents/skills/             ← Copilot CLI 에이전트 등록
-    ├── oh-my-copilot-ultrawork/
-    ├── oh-my-copilot-prometheus/
-    ├── oh-my-copilot-sisyphus/
-    ├── oh-my-copilot-hephaestus/
-    ├── oh-my-copilot-ralph-loop/
-    ├── oh-my-copilot-init-deep/
-    └── oh-my-copilot-github-triage/
+├── plugin.json                     ← 플러그인 메타데이터 및 에이전트 등록
+├── hooks.json                      ← 안전 훅 (preToolUse, sessionStart)
+├── agents/                         ← ✨ v2.0 주 시스템
+│   ├── atlas.agent.md              ← 마스터 오케스트레이터
+│   ├── sisyphus.agent.md           ← 복잡한 멀티태스크 오케스트레이터
+│   ├── sisyphus-junior.agent.md    ← 원자 태스크 실행기
+│   ├── hephaestus.agent.md         ← 딥 구현 전문가
+│   ├── prometheus.agent.md         ← 전략 플래너
+│   ├── oracle.agent.md             ← 아키텍처 어드바이저 (읽기전용)
+│   ├── metis.agent.md              ← 사전 계획 컨설턴트
+│   ├── momus.agent.md              ← 계획 리뷰어
+│   ├── explore.agent.md            ← 코드베이스 탐색기
+│   ├── librarian.agent.md          ← 외부 라이브러리 리서치
+│   ├── multimodal-looker.agent.md  ← 이미지·문서 분석
+│   └── ultrawork.agent.md          ← 풀 오케스트레이션 모드
+└── skills/                         ← 레거시 스킬 (하위 호환 유지)
+    ├── atlas/
+    ├── sisyphus/
+    ├── sisyphus-junior/
+    ├── hephaestus/
+    ├── prometheus/
+    ├── oracle/
+    ├── metis/
+    ├── momus/
+    ├── explore/
+    ├── librarian/
+    ├── multimodal-looker/
+    └── ultrawork/
 ```
 
 ---
 
 ## 📜 원작 크레딧
 
-이 프로젝트는 [oh-my-opencode](https://github.com/code-yeongyu/oh-my-openagent) (by [@code-yeongyu](https://github.com/code-yeongyu))의 철학과 프롬프트 구조를 GitHub Copilot CLI 포맷으로 이식한 것입니다.
+이 프로젝트는 [oh-my-opencode](https://github.com/code-yeongyu/oh-my-openagent) (by [@code-yeongyu](https://github.com/code-yeongyu))의 멀티에이전트 철학과 프롬프트 구조를 GitHub Copilot CLI 에이전트 포맷으로 이식·재설계한 것입니다.
+
+원작의 핵심 사상 — *"에이전트는 단일 책임을 가지며, 오케스트레이터가 전체를 조율한다"* — 을 그대로 계승합니다.
 
 ---
 
 ## 📄 License
 
-MIT
+MIT © [Lee SiHyeon](https://github.com/Lee-SiHyeon)
