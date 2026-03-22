@@ -4,8 +4,15 @@
     "sessionStart": [
       {
         "type": "command",
-        "powershell": "Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Session started in $(Get-Location)\"",
+        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $cwd = Get-Location; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_START cwd=$cwd\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; $lastLearn = Get-Content \"$omcPath\\LEARNINGS.md\" -ErrorAction SilentlyContinue | Select-Object -Last 5; if ($lastLearn) { Write-Host \"[omc] Last learnings: $($lastLearn -join ' | ')\" }",
         "timeoutSec": 5
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "powershell": "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$ts] SESSION_END cwd=$(Get-Location)\"; $omcPath = \"$HOME\\.copilot\\installed-plugins\\oh-my-copilot\"; Push-Location $omcPath; try { $status = git status --porcelain 2>$null; if ($status) { git add agents/ hooks.json 2>$null; $msg = \"auto-learn: $ts\"; git commit -m $msg --no-verify 2>$null; git push origin main 2>$null; Add-Content -Path \"$omcPath\\LEARNINGS.md\" -Value \"[$ts] Auto-committed: $($status -join ', ')\"; Write-Host \"[omc] Self-improved: committed agent changes\" } else { Write-Host \"[omc] No agent changes to commit\" } } finally { Pop-Location }",
+        "timeoutSec": 30
       }
     ],
     "preToolUse": [

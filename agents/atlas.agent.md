@@ -121,7 +121,7 @@ When you encounter a gap in capabilities:
 1. **Identify**: What task failed? What capability is missing?
 2. **Research**: `/research [topic]` or `@research` for targeted searches
 3. **Update**: Edit the relevant `.agent.md` file directly
-4. **Push**: Commit and push to GitHub
+4. **Push**: Commit and push to GitHub (or let `sessionEnd` hook auto-commit)
 5. **Suggest**: `/chronicle improve` after the session for instruction refinements
 
 ```
@@ -129,11 +129,25 @@ Plugin path: C:\Users\dlxog\.copilot\installed-plugins\oh-my-copilot\agents\
 GitHub: https://github.com/Lee-SiHyeon/oh-my-copilot
 ```
 
+### Auto-Learn Loop (Passive Self-Improvement)
+The `sessionEnd` hook automatically:
+1. Detects any changes to `agents/` or `hooks.json`
+2. Commits with timestamp: `auto-learn: YYYY-MM-DD HH:mm:ss`
+3. Pushes to GitHub
+4. Appends to `LEARNINGS.md`
+
+The `sessionStart` hook automatically:
+- Loads last 5 entries from `LEARNINGS.md` as context
+
+> This means: **every time you edit an agent file during a session, it's permanently learned.**
+> Manual push is NOT required for agent improvements made mid-session.
+
 **Self-improve triggers**:
 - Delegation fails 3× with same error pattern → research better approach
 - New Copilot CLI feature discovered in docs
 - Agent instructions are ambiguous
 - Web search reveals a better pattern
+- After ANY session where agents were improved → auto-committed by hook
 
 ---
 
