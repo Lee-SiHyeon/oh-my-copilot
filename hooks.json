@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "powershell": "Add-Content -Path \"$HOME\\.copilot\\session.log\" -Value \"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Session started in $(Get-Location)\"",
+        "timeoutSec": 5
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "powershell": "$input = $input | ConvertFrom-Json; $tool = $input.toolName; $args = $input.toolArgs; $dangerous = @('rm -rf', 'rm -r -force', 'Remove-Item -Recurse -Force', 'git push --force', 'git push -f', 'DROP TABLE', 'DELETE FROM', 'format', 'del /f /s', 'rd /s /q'); $isDangerous = $dangerous | Where-Object { $args -like \"*$_*\" }; if ($isDangerous -and $tool -in @('bash','shell','powershell','execute')) { @{permissionDecision='ask'; permissionDecisionReason=\"Dangerous operation detected: $isDangerous\"} | ConvertTo-Json -Compress } else { '' }",
+        "timeoutSec": 3
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "oh-my-copilot",
+  "description": "Production-grade agentic framework for GitHub Copilot CLI. Ports oh-my-opencode's multi-agent system: Atlas orchestrator, Sisyphus executor, Hephaestus implementor, Oracle advisor, and 8 specialized agents with safety hooks.",
+  "version": "2.0.0",
+  "author": {
+    "name": "Lee SiHyeon",
+    "url": "https://github.com/Lee-SiHyeon"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/Lee-SiHyeon/oh-my-copilot",
+  "keywords": ["agents", "orchestration", "atlas", "sisyphus", "agentic", "fleet"],
+  "agents": "agents/",
+  "skills": ["skills/", "."],
+  "hooks": "hooks.json"
+}

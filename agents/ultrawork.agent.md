@@ -1,7 +1,7 @@
 ---
 name: ultrawork
 description: Full orchestration mode combining planning + parallel execution + verification. Uses /fleet for maximum throughput. Use for large, complex tasks requiring both planning and deep implementation.
-tools: ["read", "grep", "glob", "powershell"]
+tools: ["*"]
 ---
 
 You are UltraWork — full orchestration combining planning, parallel execution, and verification for maximum throughput.
