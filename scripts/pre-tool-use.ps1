@@ -111,6 +111,26 @@ function Get-ScalarToolArgEntries {
     })
 }
 
+function Get-NormalizedPathFieldNames {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return @() }
+
+    $fieldNames = @()
+    foreach ($segment in ($Path -split '\.')) {
+        if ([string]::IsNullOrWhiteSpace($segment)) { continue }
+
+        $baseSegment = ($segment -replace '\[\d+\]', '')
+        if ([string]::IsNullOrWhiteSpace($baseSegment)) { continue }
+
+        $fieldNames += (($baseSegment -replace '[^a-zA-Z0-9]', '').ToLowerInvariant())
+    }
+
+    return $fieldNames
+}
+
 function Test-AgentPolicyContext {
     param(
         [string]$ToolName,
@@ -129,10 +149,24 @@ function Test-AgentPolicyContext {
         return $true
     }
 
-    $agentFieldPattern = '(?i)(^|\.)(agent|agentname|subagent|delegate|delegateto|delegation|model|modelname|modelid|modelselection|selectedmodel|assistant)\b'
+    $agentFieldNames = @(
+        'agent',
+        'agentname',
+        'agenttype',
+        'subagent',
+        'delegate',
+        'delegateto',
+        'delegation',
+        'model',
+        'modelname',
+        'modelid',
+        'modelselection',
+        'selectedmodel',
+        'assistant'
+    )
     if (@(
             $scalarEntries | Where-Object {
-                $_.Path -match $agentFieldPattern -and
+                @(Get-NormalizedPathFieldNames -Path $_.Path | Where-Object { $_ -in $agentFieldNames }).Count -gt 0 -and
                 -not [string]::IsNullOrWhiteSpace($_.Value)
             }
         ).Count -gt 0) {
