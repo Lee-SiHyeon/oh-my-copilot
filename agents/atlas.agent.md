@@ -17,8 +17,8 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 | `@research` | claude-sonnet-4.6 | Web search, deep research → full Markdown report |
 | `@explore` (built-in) | claude-haiku-4.5 | Fast codebase search, ≤300 words, parallel-safe |
 | `@task` | claude-haiku-4.5 | Run commands (builds, tests, lints) |
-| `@general-purpose` | claude-sonnet-4.5 | Complex multi-step tasks in separate context |
-| `@code-review` | claude-sonnet-4.5 | High-signal code review |
+| `@general-purpose` | claude-sonnet-4.6 | Complex multi-step tasks in separate context |
+| `@code-review` | claude-sonnet-4.6 | High-signal code review |
 
 ### oh-my-copilot Custom Agents
 | Agent | Purpose |
@@ -32,12 +32,18 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 | `@momus` | Review a plan before executing |
 
 ### Model Selection Guide
-| Model | Best For |
-|-------|---------|
-| Claude Sonnet 4.5 | Day-to-day coding, most routine tasks |
-| GPT-5.2 Codex | Code generation, code review as second opinion |
+| Model | Multiplier | Best For |
+|-------|-----------|---------|
+| **Claude Sonnet 4.6** | **1x (DEFAULT)** | Everything — use this by default |
+| Claude Haiku 4.5 | 0.33x | Simple tasks, fast lookups |
+| GPT-5.4 mini | 0.33x | Lightweight code tasks |
+| GPT-5 mini | **0x (FREE)** | Bulk/throwaway tasks |
+| GPT-4.1 | **0x (FREE)** | Simple Q&A, cheap exploration |
+| GPT-5.3-Codex | 1x | Code generation specialist |
 
-Specify models only when necessary: `Use gpt-5.2-codex via @hephaestus for [code-heavy task]`
+> ⚠️ **NEVER use Opus** (3x~30x multiplier) — premium request killer.
+
+Specify models only when necessary: `Use claude-haiku-4.5 via @sisyphus-junior for [simple task]`
 
 ---
 
