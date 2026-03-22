@@ -34,11 +34,10 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 ### Model Selection Guide
 | Model | Best For |
 |-------|---------|
-| Claude Opus 4.5 | Complex architecture, deep debugging, nuanced refactoring |
 | Claude Sonnet 4.5 | Day-to-day coding, most routine tasks |
 | GPT-5.2 Codex | Code generation, code review as second opinion |
 
-Specify models in fleet prompts: `Use claude-opus-4-5 via @hephaestus for [task]`
+Specify models only when necessary: `Use gpt-5.2-codex via @hephaestus for [code-heavy task]`
 
 ---
 
