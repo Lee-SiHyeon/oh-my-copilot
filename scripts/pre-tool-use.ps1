@@ -267,7 +267,9 @@ $dangerousPatterns = @(
     'git push -f',
     'DROP TABLE',
     'DELETE FROM',
-    'format',
+    'format-volume',
+    'format.com',
+    'format ',
     'del /f /s',
     'rd /s /q'
 )
