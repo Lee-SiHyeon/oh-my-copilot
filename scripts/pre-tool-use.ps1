@@ -131,21 +131,81 @@ function Get-NormalizedPathFieldNames {
     return $fieldNames
 }
 
+function Test-CompliantTaskDelegationPrompt {
+    param(
+        [object]$ToolArgsObject
+    )
+
+    if ($null -eq $ToolArgsObject) { return $false }
+
+    $prompt = "$($ToolArgsObject.prompt)"
+    if ([string]::IsNullOrWhiteSpace($prompt)) { return $false }
+
+    $requiredSections = @(
+        '## 1. TASK',
+        '## 2. EXPECTED OUTCOME',
+        '## 3. REQUIRED TOOLS',
+        '## 4. MUST DO',
+        '## 5. MUST NOT DO',
+        '## 6. CONTEXT'
+    )
+
+    foreach ($section in $requiredSections) {
+        if ($prompt.IndexOf($section, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+            return $false
+        }
+    }
+
+    return ($prompt -split '\r?\n').Count -ge 30
+}
+
 function Test-AgentPolicyContext {
     param(
         [string]$ToolName,
         [object]$ToolArgsObject
     )
 
-    if ($ToolName -imatch '(^|[-_])(agent|delegate|delegation|subagent|model[-_]?select(?:ion)?)([-_]|$)') {
-        return $true
+    $normalizedToolName = ($ToolName -replace '[^a-zA-Z0-9]', '').ToLowerInvariant()
+    $agentReadOnlyToolNames = @(
+        'readagent',
+        'listagents'
+    )
+    if ($normalizedToolName -in $agentReadOnlyToolNames) {
+        return $false
+    }
+
+    $agentRelevantToolNames = @(
+        'task',
+        'delegate',
+        'delegation',
+        'delegateto',
+        'subagent',
+        'modelselect',
+        'modelselection',
+        'selectmodel'
+    )
+    if ($normalizedToolName -notin $agentRelevantToolNames) {
+        return $false
     }
 
     $scalarEntries = Get-ScalarToolArgEntries -Value $ToolArgsObject
     if ($scalarEntries.Count -eq 0) { return $false }
 
+    $modelFieldNames = @(
+        'model',
+        'modelname',
+        'modelid',
+        'modelselection',
+        'selectedmodel'
+    )
     $opusPattern = '(?i)\bclaude-opus(?:-[a-z0-9.]+)?\b|\bopus(?:-[a-z0-9.]+)?\b'
-    if (@($scalarEntries | Where-Object { $_.Value -match $opusPattern }).Count -gt 0) {
+    $hasOpusModelSelection = @(
+            $scalarEntries | Where-Object {
+                @(Get-NormalizedPathFieldNames -Path $_.Path | Where-Object { $_ -in $modelFieldNames }).Count -gt 0 -and
+                $_.Value -match $opusPattern
+            }
+        ).Count -gt 0
+    if ($hasOpusModelSelection) {
         return $true
     }
 
@@ -164,16 +224,21 @@ function Test-AgentPolicyContext {
         'selectedmodel',
         'assistant'
     )
-    if (@(
+    $hasAgentControlFields = @(
             $scalarEntries | Where-Object {
                 @(Get-NormalizedPathFieldNames -Path $_.Path | Where-Object { $_ -in $agentFieldNames }).Count -gt 0 -and
                 -not [string]::IsNullOrWhiteSpace($_.Value)
             }
-        ).Count -gt 0) {
-        return $true
+        ).Count -gt 0
+    if (-not $hasAgentControlFields) {
+        return $false
     }
 
-    return $false
+    if ($normalizedToolName -eq 'task') {
+        return -not (Test-CompliantTaskDelegationPrompt -ToolArgsObject $ToolArgsObject)
+    }
+
+    return $true
 }
 
 $rawInput = [Console]::In.ReadToEnd()
@@ -191,6 +256,8 @@ $toolArgs = ''
 if ($null -ne $toolArgsObject) {
     $toolArgs = $toolArgsObject | ConvertTo-Json -Compress -Depth 10
 }
+
+$shellLikeToolNames = @('bash', 'shell', 'powershell', 'execute')
 
 $dangerousPatterns = @(
     'rm -rf',
@@ -217,7 +284,7 @@ $matchedDangerousGitPatterns = @(
     }
 )
 
-if (($toolName -in @('bash', 'shell', 'powershell', 'execute')) -and $matchedDangerousPatterns.Count -gt 0) {
+if (($toolName -in $shellLikeToolNames) -and $matchedDangerousPatterns.Count -gt 0) {
     Write-PermissionDecision -Decision 'ask' -Reason "Dangerous operation detected: $($matchedDangerousPatterns -join '; ')"
     return
 }
@@ -233,7 +300,7 @@ if ($matchedDangerousGitPatterns.Count -gt 0) {
     $domain = 'git'
 } elseif (Test-AgentPolicyContext -ToolName $toolName -ToolArgsObject $toolArgsObject) {
     $domain = 'agent'
-} elseif ($toolArgs -imatch 'rm\s+-rf|remove-item\b.*-recurse|del\s+/f\s+/s|rd\s+/s\s+/q') {
+} elseif (($toolName -in $shellLikeToolNames) -and ($toolArgs -imatch 'rm\s+-rf|remove-item\b.*-recurse|del\s+/f\s+/s|rd\s+/s\s+/q')) {
     $domain = 'file_io'
 }
 
