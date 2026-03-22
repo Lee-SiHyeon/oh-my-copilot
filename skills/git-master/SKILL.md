@@ -2,7 +2,7 @@
 name: git-master
 description: "Git expert with 3 modes: COMMIT (atomic multi-commit from staged changes), REBASE (history rewriting, squash, cleanup), HISTORY_SEARCH (blame, bisect, find when/where changes introduced). Auto-detects mode from request. (git-master - oh-my-opencode port)"
 allowed-tools:
-  - Execute
+  - Bash
   - Read
   - Grep
   - Glob
@@ -107,7 +107,7 @@ COMMIT 2: [message in detected style]
 
 **Dependency ordering**: Level 0 (utils/types) → Level 1 (models) → Level 2 (services) → Level 3 (controllers) → Level 4 (config)
 
-### Phase 4–6: Execute & Verify
+### Phase 4–6: Bash & Verify
 
 ```bash
 # For each commit:

@@ -5,8 +5,7 @@ allowed-tools:
   - Read
   - Grep
   - Glob
-  - Execute
-  - Task
+  - Bash
 ---
 
 # Atlas — Master Orchestrator
@@ -81,7 +80,7 @@ mkdir -p .sisyphus/notepads/{plan-name}
 # learnings.md, decisions.md, issues.md, problems.md
 ```
 
-### Step 3: Execute Tasks
+### Step 3: Bash Tasks
 
 **3.1 Parallelization**: Invoke multiple independent tasks in ONE message.
 

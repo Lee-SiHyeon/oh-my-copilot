@@ -2,7 +2,7 @@
 name: playwright
 description: "MUST USE for any browser-related tasks. Browser automation via agent-browser CLI - verification, browsing, information gathering, web scraping, testing, screenshots, and all browser interactions. (playwright - oh-my-opencode port)"
 allowed-tools:
-  - Execute
+  - Bash
 ---
 
 # Browser Automation with agent-browser

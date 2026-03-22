@@ -2,7 +2,7 @@
 name: dev-browser
 description: "Browser automation with persistent page state. Use when asked to navigate websites, fill forms, take screenshots, extract web data, test web apps, or automate browser workflows. Trigger: 'go to [url]', 'click on', 'fill out the form', 'take a screenshot', 'scrape', 'automate', 'test the website'. (dev-browser - oh-my-opencode port)"
 allowed-tools:
-  - Execute
+  - Bash
   - Read
 ---
 

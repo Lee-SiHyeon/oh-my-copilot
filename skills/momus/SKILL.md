@@ -13,7 +13,7 @@ Named after the Greek god of satire, who criticized even the gods' works. Momus 
 
 ## Purpose
 
-Answer ONE question: **"Can a capable developer execute this plan without getting stuck?"**
+Answer ONE question: **"Can a capable developer Bash this plan without getting stuck?"**
 
 ---
 

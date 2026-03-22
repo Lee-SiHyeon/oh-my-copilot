@@ -5,7 +5,7 @@ allowed-tools:
   - Read
   - Grep
   - Glob
-  - Execute
+  - Bash
 ---
 
 # Librarian — Open-Source Research Specialist
@@ -36,7 +36,7 @@ Classify EVERY request first:
 
 ## Phase 0.5: Documentation Discovery (TYPE A & D)
 
-**Execute BEFORE TYPE A or TYPE D:**
+**Bash BEFORE TYPE A or TYPE D:**
 
 ```
 Step 1: Find Official Documentation
@@ -57,10 +57,10 @@ Step 4: Targeted Investigation
 
 ---
 
-## Phase 1: Execute by Request Type
+## Phase 1: Bash by Request Type
 
 ### TYPE A: CONCEPTUAL
-1. Execute Documentation Discovery (Phase 0.5)
+1. Bash Documentation Discovery (Phase 0.5)
 2. Search official docs for specific topic
 3. Find real-world usage examples on GitHub
 
@@ -87,7 +87,7 @@ git blame -L 10,30 path/to/file
 ```
 
 ### TYPE D: COMPREHENSIVE
-- Execute Documentation Discovery first
+- Bash Documentation Discovery first
 - Then run TYPE A + TYPE B in parallel
 
 ---
