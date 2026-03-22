@@ -1,0 +1,17 @@
+# Personal/local overrides (user-specific, never push)
+local/config.json
+local/agents/*
+
+# Shipped local/ scaffolding
+!local/README.md
+!local/config.json.template
+!local/agents/.gitkeep
+
+# Per-user SQLite memory DB (regenerate with scripts/init-memory.ps1)
+omc-memory.db
+
+# Personal agent files accidentally placed in agents/
+*.personal.agent.md
+
+# Personal config
+personal-config.json

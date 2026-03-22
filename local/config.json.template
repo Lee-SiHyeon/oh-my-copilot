@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy to local/config.json and customize. This file is gitignored.",
+  "language": "ko",
+  "defaultModel": "claude-sonnet-4.6",
+  "personalAgentsDir": "~/.copilot/agents/",
+  "enableSessionAnalysis": true,
+  "sessionAnalysisDepth": 30
+}

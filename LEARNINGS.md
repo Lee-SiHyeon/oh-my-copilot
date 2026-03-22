@@ -13,3 +13,13 @@ Atlas uses this context at sessionStart to inform delegation decisions.
 [2026-03-22 19:25:39] Auto-committed: ?? scripts/
 [2026-03-22 19:26:04] Auto-committed:  M LEARNINGS.md,  M agents/atlas.agent.md, ?? omc-memory.db, ?? scripts/
 [2026-03-22 19:26:23] Auto-committed:  M LEARNINGS.md, ?? omc-memory.db, ?? scripts/
+[2026-03-22 19:29:40] Auto-committed:  M LEARNINGS.md,  M hooks.json, ?? omc-memory.db, ?? scripts/
+[2026-03-22 19:30:08] Auto-committed:  M LEARNINGS.md
+[2026-03-22 19:30:30] Auto-committed:  M LEARNINGS.md
+[2026-03-22 19:45:39] Auto-committed:  M LEARNINGS.md
+[2026-03-22 19:47:33] Auto-committed:  M LEARNINGS.md,  M hooks.json, ?? .gitignore
+[2026-03-22 19:50:19] Auto-committed:  M LEARNINGS.md, ?? .gitignore, ?? scripts/collect-session-data.ps1
+[2026-03-22 19:50:41] Auto-committed:  M LEARNINGS.md, ?? .gitignore
+[2026-03-22 20:01:07] Auto-committed:  M LEARNINGS.md,  M agents/atlas.agent.md,  M scripts/collect-session-data.ps1, ?? .gitignore, ?? agents/personal-advisor.agent.md
+[2026-03-22 20:02:45] Auto-committed:  M LEARNINGS.md,  M README.md, ?? .gitignore
+[2026-03-22 20:04:52] Auto-committed:  M LEARNINGS.md,  M README.md,  M agents/atlas.agent.md, ?? .gitignore
