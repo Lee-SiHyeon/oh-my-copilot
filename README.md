@@ -26,22 +26,25 @@
 
 ## 🚀 빠른 시작
 
-### Linux / macOS
-
 ```bash
-git clone https://github.com/Lee-SiHyeon/oh-my-copilot ~/.copilot/installed-plugins/oh-my-copilot
-```
-
-### Windows (PowerShell)
-
-```powershell
-git clone https://github.com/Lee-SiHyeon/oh-my-copilot "$env:USERPROFILE\.copilot\installed-plugins\oh-my-copilot"
+# 공식 설치 명령 (모든 플랫폼 공통)
+copilot plugin install Lee-SiHyeon/oh-my-copilot
 ```
 
 설치 후 Copilot CLI를 **재시작**하면 12개 에이전트가 즉시 사용 가능합니다.
 
+#### Atlas 에이전트로 시작하기
+
+```bash
+# --agent 플래그로 Atlas를 기본 에이전트로 지정
+copilot --agent oh-my-copilot:atlas
+
+# 또는 PowerShell 프로필에 alias 추가 (권장)
+# function atlas { & "copilot.cmd" --agent oh-my-copilot:atlas --autopilot @args }
 ```
-@atlas "REST API 인증 시스템 전체 구현해줘"
+
+```
+REST API 인증 시스템 전체 구현해줘   ← Atlas가 하위 에이전트에 위임
 ```
 
 ---
@@ -65,12 +68,15 @@ git clone https://github.com/Lee-SiHyeon/oh-my-copilot "$env:USERPROFILE\.copilo
 
 ### 에이전트 호출 방법
 
-```
-@atlas "새 기능 추가해줘"                     ← 항상 Atlas부터 시작
-@hephaestus "auth 모듈 리팩토링해줘"           ← 특정 에이전트 직접 호출
-@oracle "이 아키텍처 설계 검토해줘"             ← 읽기전용 자문
-@metis "이 요구사항에 숨겨진 함정 찾아줘"       ← 사전 리스크 파악
-@momus "이 계획서 검토해줘"                    ← OKAY / REJECT 빠른 판정
+Atlas를 기본 에이전트로 시작한 후, Atlas가 내부적으로 하위 에이전트에 위임합니다.
+
+```bash
+# --agent 플래그로 특정 에이전트 직접 시작
+copilot --agent oh-my-copilot:atlas       ← 항상 Atlas부터 시작 (권장)
+copilot --agent oh-my-copilot:hephaestus  ← 구현 작업만 있을 때 직접 호출
+copilot --agent oh-my-copilot:oracle      ← 읽기전용 아키텍처 자문
+copilot --agent oh-my-copilot:metis       ← 사전 리스크 파악
+copilot --agent oh-my-copilot:momus       ← 계획서 검토 (OKAY / REJECT)
 ```
 
 ---
@@ -81,14 +87,14 @@ git clone https://github.com/Lee-SiHyeon/oh-my-copilot "$env:USERPROFILE\.copilo
 
 | 티어 | 모델 | 비용 | 추천 용도 |
 |---|---|---|---|
-| 🥇 **기본값** | `claude-sonnet-4-5` | 중간 | 대부분의 구현 작업, 기본 오케스트레이션 |
-| 🥈 **저렴** | `claude-haiku-3-5` | 낮음 | 단순 원자 태스크, Sisyphus-Junior, Explore |
-| 🆓 **무료** | `gpt-4.1-mini` | **$0** | 가볍고 빠른 작업, 비용 절감 최우선 시 |
+| 🥇 **기본값** | `claude-sonnet-4.6` | 중간 | 대부분의 구현 작업, 기본 오케스트레이션 |
+| 🥈 **저렴** | `claude-haiku-4.5` | 낮음 | 단순 원자 태스크, Sisyphus-Junior, Explore |
+| 🆓 **무료** | `gpt-5-mini` | **$0** | 가볍고 빠른 작업, 비용 절감 최우선 시 |
 | 🆓 **무료** | `gpt-4.1` | **$0** | 무료이면서 고품질이 필요할 때 |
-| 🧠 **고성능** | `claude-opus-4-5` | **매우 높음** | 극한의 복잡도가 필요한 경우에만 |
-| ❌ **금지** | `claude-opus-3` | **과금 폭탄** | **절대 사용 금지** — 비용 대비 효율 최악 |
+| 🧠 **고성능** | `claude-opus-4.5` | **매우 높음** | 극한의 복잡도가 필요한 경우에만 |
+| ❌ **금지** | `claude-opus-4.6` | **과금 폭탄** | **절대 사용 금지** — Opus 계열 전체 비용 대비 효율 최악 |
 
-> 💡 **권장 전략**: 일반 작업은 `gpt-4.1` (무료) → 복잡한 구현은 `sonnet-4-5` → 극한 작업만 `opus-4-5`
+> 💡 **권장 전략**: 일반 작업은 `gpt-4.1` (무료) → 복잡한 구현은 `claude-sonnet-4.6` → 극한 작업만 `claude-opus-4.5`
 
 ---
 
@@ -97,11 +103,13 @@ git clone https://github.com/Lee-SiHyeon/oh-my-copilot "$env:USERPROFILE\.copilo
 `/fleet`으로 여러 에이전트를 **병렬로 동시 실행**해 작업 속도를 극대화합니다.
 
 ```
-@atlas "/fleet 다음 3개 태스크를 병렬로 실행해줘:
-  1. @hephaestus - auth 모듈 구현
-  2. @hephaestus - database 스키마 마이그레이션
-  3. @prometheus - API 문서 계획 수립"
+"다음 3개 태스크를 병렬로 실행해줘:
+  1. hephaestus로 auth 모듈 구현
+  2. hephaestus로 database 스키마 마이그레이션
+  3. prometheus로 API 문서 계획 수립"
 ```
+
+> `/fleet`은 Atlas 에이전트가 내부 task 도구를 통해 병렬 처리하는 패턴을 부르는 이름입니다.
 
 ### Fleet 실행 흐름
 
