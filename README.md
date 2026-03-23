@@ -115,7 +115,7 @@ nlm login
 
 > - `pipx`가 없으면 먼저 `pip install pipx` 후 설치
 > - `nlm login` 후 브라우저에서 Google OAuth 인증 필요
-> - 인증 완료 후 `nlm version`으로 정상 동작 확인
+> - 인증 완료 후 `nlm --version`으로 정상 동작 확인
 
 ### 플러그인 설치
 
