@@ -119,6 +119,23 @@ function Test-IsSharedSourcePath {
     )
 }
 
+function Test-IsReadmeSyncGuardPath {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+
+    return (
+        $Path -match '^agents/' -or
+        $Path -match '^scripts/' -or
+        $Path -match '^hooks\.json$' -or
+        $Path -match '^plugin\.json$' -or
+        $Path -match '^local/README\.md$' -or
+        $Path -match '^\.gitignore$'
+    )
+}
+
 $copilotRoot        = Get-CopilotRoot
 $pluginRoot         = Get-PluginRoot
 $logPath            = Join-Path $copilotRoot 'session.log'
@@ -150,7 +167,13 @@ try {
         $status       = @(& $git.Source status --porcelain --untracked-files=all 2>$null)
         $changedPaths = @(Get-ChangedPathsFromStatus -StatusLines $status | Select-Object -Unique)
         $sharedPaths  = @($changedPaths | Where-Object { Test-IsSharedSourcePath $_ })
+        $readmeSyncPaths = @($changedPaths | Where-Object { Test-IsReadmeSyncGuardPath $_ })
+        $readmeChanged = $changedPaths -contains 'README.md'
         $ignoredPaths = @($changedPaths | Where-Object { -not (Test-IsSharedSourcePath $_) })
+
+        if ($readmeSyncPaths.Count -gt 0 -and -not $readmeChanged) {
+            throw "[omc] README sync required before session end: update README.md for $($readmeSyncPaths -join ', ')"
+        }
 
         if ($sharedPaths.Count -gt 0) {
             if ($DryRun) {

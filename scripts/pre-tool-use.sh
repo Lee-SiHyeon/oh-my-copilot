@@ -47,6 +47,61 @@ emit_decision() {
 }
 
 # ---------------------------------------------------------------------------
+# Git status 기반 README 동기화 가드
+# ---------------------------------------------------------------------------
+normalize_status_path() {
+    local line="$1"
+    local raw_path="${line:3}"
+
+    if [[ "$raw_path" == *" -> "* ]]; then
+        raw_path="${raw_path##* -> }"
+    fi
+
+    raw_path="${raw_path#\"}"
+    raw_path="${raw_path%\"}"
+    raw_path="${raw_path## }"
+    raw_path="${raw_path%% }"
+
+    printf '%s\n' "$raw_path"
+}
+
+is_readme_sync_guard_path() {
+    local path="$1"
+    [[ "$path" =~ ^agents/ ]] || [[ "$path" =~ ^scripts/ ]] ||
+    [[ "$path" == "hooks.json" ]] || [[ "$path" == "plugin.json" ]] ||
+    [[ "$path" == "local/README.md" ]] || [[ "$path" == ".gitignore" ]]
+}
+
+get_readme_sync_violation_paths() {
+    command -v git &>/dev/null || return 0
+    git -C "$PLUGIN_ROOT" rev-parse --is-inside-work-tree &>/dev/null || return 0
+
+    local path=""
+    local readme_changed=false
+    local -a violation_paths=()
+    local -a status_lines=()
+
+    mapfile -t status_lines < <(git -C "$PLUGIN_ROOT" status --porcelain --untracked-files=all 2>/dev/null)
+
+    for line in "${status_lines[@]}"; do
+        path="$(normalize_status_path "$line")"
+        [[ -n "$path" ]] || continue
+
+        if [[ "$path" == "README.md" ]]; then
+            readme_changed=true
+        fi
+
+        if is_readme_sync_guard_path "$path"; then
+            violation_paths+=("$path")
+        fi
+    done
+
+    if [[ ${#violation_paths[@]} -gt 0 && "$readme_changed" != true ]]; then
+        printf '%s\n' "${violation_paths[@]}"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # 1. stdin에서 JSON 읽기
 # ---------------------------------------------------------------------------
 INPUT="$(cat -)"
@@ -136,7 +191,18 @@ if [[ "$is_agent_tool" == true ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 6. SQLite meta_policy_rules 조회
+# 6. README 동기화 가드
+# ---------------------------------------------------------------------------
+mapfile -t readme_sync_violation_paths < <(get_readme_sync_violation_paths)
+if [[ ${#readme_sync_violation_paths[@]} -gt 0 ]]; then
+    changed_summary="$(printf '%s, ' "${readme_sync_violation_paths[@]}")"
+    changed_summary="${changed_summary%, }"
+    emit_decision "ask" "README sync required: changed shared plugin files without README.md update (${changed_summary})"
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# 7. SQLite meta_policy_rules 조회
 # ---------------------------------------------------------------------------
 # domain 결정 로직
 domain=""
@@ -175,6 +241,6 @@ if [[ -n "$domain" ]] && command -v sqlite3 &>/dev/null && [[ -f "$DB_PATH" ]]; 
 fi
 
 # ---------------------------------------------------------------------------
-# 7. 아무것도 매칭되지 않으면 조용히 종료
+# 8. 아무것도 매칭되지 않으면 조용히 종료
 # ---------------------------------------------------------------------------
 exit 0

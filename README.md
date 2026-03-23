@@ -17,7 +17,7 @@
 - **마스터 오케스트레이터**: `@atlas` — 모든 작업을 하위 에이전트에 위임합니다
 - **총 14개 에이전트**: 공유 팀 에이전트 13개 + 개인화용 `personal-advisor`
 - **Fleet 패턴**: `/fleet` 명령으로 복수 에이전트를 병렬 실행
-- **안전 훅**: `preToolUse` 훅으로 위험 명령 실행 전 자동 확인 요청
+- **안전 훅**: `preToolUse`, `sessionEnd`, `sessionStart` 훅으로 실행 전 확인·종료 시 검증·세션 로깅 제공
 - **자기개선 프로토콜**: 에이전트가 직접 자신의 `.agent.md`를 수정해 역량을 축적
 - **개인 에이전트 지원**: `~/.copilot/agents/` 또는 `local/agents/`에 비공개 개인 에이전트 생성 가능
 
@@ -330,7 +330,7 @@ Atlas Heavy Mode 실행 흐름:
 
 ## 🛡️ 안전 훅
 
-`hooks.json`의 `preToolUse` 훅이 **위험 명령 실행 전 자동으로 개입**합니다.
+`hooks.json`의 `preToolUse` 훅이 **위험 명령 실행 전 자동으로 개입**합니다. 이제 이 훅은 위험 명령뿐 아니라, `agents/`, `scripts/`, `plugin.json`, `hooks.json`, `local/README.md`, `.gitignore` 같은 플러그인 핵심 파일이 변경됐는데 루트 `README.md`가 함께 갱신되지 않은 상태도 빠르게 감지합니다.
 
 ### 감지하는 위험 패턴
 
@@ -350,6 +350,8 @@ Atlas Heavy Mode 실행 흐름:
 }
 ```
 
+README 동기화 누락이 감지되면 `preToolUse`는 `permissionDecision: "ask"`로 조기 경고를 내고, `sessionEnd`는 같은 조건을 최종 재검사해 세션 종료를 실패시킵니다. 즉, 핵심 플러그인 파일을 바꿨다면 작업이 끝나기 전에 반드시 `README.md`도 함께 수정해야 합니다.
+
 ### 세션 로깅
 
 `sessionStart` 훅이 매 세션 시작 시 `~/.copilot/session.log`에 타임스탬프와 작업 디렉터리를 기록합니다. 에이전트가 어디서 무엇을 했는지 추적 가능합니다.
@@ -368,7 +370,7 @@ Atlas Heavy Mode 실행 흐름:
 oh-my-copilot/
 ├── .gitignore                       ← local/ 및 레거시 호환용 개인 데이터 경로 제외
 ├── plugin.json                      ← 플러그인 메타데이터 및 에이전트 등록
-├── hooks.json                       ← 안전 훅 (preToolUse, sessionStart)
+├── hooks.json                       ← 안전 훅 (preToolUse, sessionEnd, sessionStart)
 ├── LEARNINGS.md                     ← 플러그인 수준 학습 기록
 ├── agents/                          ← ✨ v2.0 주 시스템
 │   ├── atlas.agent.md               ← 마스터 오케스트레이터

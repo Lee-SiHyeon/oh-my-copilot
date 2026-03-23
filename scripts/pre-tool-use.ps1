@@ -81,6 +81,64 @@ function Write-PermissionDecision {
     } | ConvertTo-Json -Compress
 }
 
+function Get-ChangedPathsFromStatus {
+    param(
+        [string[]]$StatusLines
+    )
+
+    $paths = @()
+    foreach ($line in $StatusLines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+
+        $path = if ($line.Length -ge 4) { $line.Substring(3).Trim() } else { $line.Trim() }
+        if ($path -match ' -> ') {
+            $path = ($path -split ' -> ')[-1].Trim()
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($path)) {
+            $paths += ($path -replace '\\', '/')
+        }
+    }
+
+    return $paths
+}
+
+function Test-IsReadmeSyncGuardPath {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+
+    return (
+        $Path -match '^agents/' -or
+        $Path -match '^scripts/' -or
+        $Path -match '^hooks\.json$' -or
+        $Path -match '^plugin\.json$' -or
+        $Path -match '^local/README\.md$' -or
+        $Path -match '^\.gitignore$'
+    )
+}
+
+function Get-ReadmeSyncViolationPaths {
+    param(
+        [string]$PluginRoot,
+        [string]$GitPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($GitPath)) { return @() }
+    if ([string]::IsNullOrWhiteSpace($PluginRoot)) { return @() }
+
+    [void](& $GitPath -C $PluginRoot rev-parse --is-inside-work-tree 2>$null)
+    if ($LASTEXITCODE -ne 0) { return @() }
+
+    $status = @(& $GitPath -C $PluginRoot status --porcelain --untracked-files=all 2>$null)
+    $changedPaths = @(Get-ChangedPathsFromStatus -StatusLines $status | Select-Object -Unique)
+    if ($changedPaths -contains 'README.md') { return @() }
+
+    return @($changedPaths | Where-Object { Test-IsReadmeSyncGuardPath $_ } | Select-Object -Unique)
+}
+
 function Get-ScalarToolArgEntries {
     param(
         [object]$Value,
@@ -328,6 +386,16 @@ $matchedDangerousGitPatterns = @(
 
 if (($toolName -in $shellLikeToolNames) -and $matchedDangerousPatterns.Count -gt 0) {
     Write-PermissionDecision -Decision 'ask' -Reason "Dangerous operation detected: $($matchedDangerousPatterns -join '; ')"
+    return
+}
+
+$git = Get-Command git -ErrorAction SilentlyContinue
+$readmeSyncViolationPaths = @()
+if ($git -and $git.Source) {
+    $readmeSyncViolationPaths = @(Get-ReadmeSyncViolationPaths -PluginRoot (Get-PluginRoot) -GitPath $git.Source)
+}
+if ($readmeSyncViolationPaths.Count -gt 0) {
+    Write-PermissionDecision -Decision 'ask' -Reason "README sync required: changed shared plugin files without README.md update ($($readmeSyncViolationPaths -join ', '))"
     return
 }
 
