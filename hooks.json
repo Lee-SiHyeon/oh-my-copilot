@@ -5,7 +5,7 @@
       {
         "type": "command",
         "powershell": "& (Join-Path $HOME '.copilot\\installed-plugins\\oh-my-copilot\\scripts\\session-start.ps1')",
-        "bash": "pwsh -NoProfile -File \"$HOME/.copilot/installed-plugins/oh-my-copilot/scripts/session-start.ps1\"",
+        "bash": "for d in \"$HOME/.copilot/installed-plugins/oh-my-copilot\" \"$HOME/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot\"; do [ -f \"$d/scripts/session-start.sh\" ] && exec bash \"$d/scripts/session-start.sh\"; done",
         "timeoutSec": 15
       }
     ],
@@ -13,7 +13,7 @@
       {
         "type": "command",
         "powershell": "& (Join-Path $HOME '.copilot\\installed-plugins\\oh-my-copilot\\scripts\\session-end.ps1')",
-        "bash": "pwsh -NoProfile -File \"$HOME/.copilot/installed-plugins/oh-my-copilot/scripts/session-end.ps1\"",
+        "bash": "for d in \"$HOME/.copilot/installed-plugins/oh-my-copilot\" \"$HOME/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot\"; do [ -f \"$d/scripts/session-end.sh\" ] && exec bash \"$d/scripts/session-end.sh\"; done",
         "timeoutSec": 45
       }
     ],
@@ -21,7 +21,7 @@
       {
         "type": "command",
         "powershell": "& (Join-Path $HOME '.copilot\\installed-plugins\\oh-my-copilot\\scripts\\pre-tool-use.ps1')",
-        "bash": "pwsh -NoProfile -File \"$HOME/.copilot/installed-plugins/oh-my-copilot/scripts/pre-tool-use.ps1\"",
+        "bash": "for d in \"$HOME/.copilot/installed-plugins/oh-my-copilot\" \"$HOME/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot\"; do [ -f \"$d/scripts/pre-tool-use.sh\" ] && exec bash \"$d/scripts/pre-tool-use.sh\"; done",
         "timeoutSec": 5
       }
     ]

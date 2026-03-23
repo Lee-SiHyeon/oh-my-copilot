@@ -87,6 +87,49 @@ copilot --agent oh-my-copilot:personal-advisor
 
 ---
 
+## 🐧 Ubuntu / Linux 설치 가이드
+
+### 의존성 설치
+
+```bash
+sudo apt update && sudo apt install -y sqlite3 jq git
+```
+
+> - `sqlite3`: 메모리 시스템 (semantic_memory, policy rules, Q-table)
+> - `jq`: pre-tool-use 훅의 JSON 파싱
+> - `git`: session-end 훅의 자동 커밋/push
+
+### 플러그인 설치
+
+```bash
+copilot plugin install Lee-SiHyeon/oh-my-copilot
+```
+
+> **⚠️ 실제 설치 경로**: `copilot plugin install`로 설치 시 플러그인은  
+> `~/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot/`에 위치합니다.  
+> hooks.json은 이 경로와 `oh-my-copilot/` 경로 모두를 자동으로 탐색합니다.
+
+### Agent alias 설정 (선택사항)
+
+`oh-my-copilot:atlas` 대신 `atlas`로 짧게 호출하려면:
+
+```bash
+mkdir -p ~/.copilot/agents
+ln -s ~/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot/agents/atlas.agent.md ~/.copilot/agents/atlas.agent.md
+```
+
+### 트러블슈팅
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| hooks 실행 안 됨 | pwsh 없음 (기존 버전) | 최신 버전으로 업데이트 (bash 스크립트 내장) |
+| `sqlite3: command not found` | sqlite3 미설치 | `sudo apt install sqlite3` |
+| `jq: command not found` | jq 미설치 | `sudo apt install jq` |
+| `atlas` agent not found | namespace 불일치 | 위 alias symlink 명령 실행 |
+| config.json 스키마 오류 | 직접 편집 시 발생 | `copilot plugin install` 명령만 사용 |
+
+---
+
 ## 🤖 에이전트 팀 (13개)
 
 | 에이전트 | 역할 | Best For |
