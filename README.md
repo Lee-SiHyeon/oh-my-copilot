@@ -101,6 +101,22 @@ sudo apt update && sudo apt install -y sqlite3 jq git
 > - `jq`: pre-tool-use 훅의 JSON 파싱
 > - `git`: session-end 훅의 자동 커밋/push
 
+#### nlm CLI (NotebookLM 리서치 브레인)
+
+`nlm-researcher` 에이전트를 사용하려면 nlm CLI가 필요합니다.
+
+```bash
+# pipx로 설치 (pip 직접 사용 시 PEP 668 오류 발생 가능)
+pipx install notebooklm-mcp-cli
+
+# Google 계정으로 인증
+nlm login
+```
+
+> - `pipx`가 없으면 먼저 `pip install pipx` 후 설치
+> - `nlm login` 후 브라우저에서 Google OAuth 인증 필요
+> - 인증 완료 후 `nlm version`으로 정상 동작 확인
+
 ### 플러그인 설치
 
 ```bash
@@ -127,6 +143,8 @@ ln -s ~/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot/agents/atl
 | hooks 실행 안 됨 | pwsh 없음 (기존 버전) | 최신 버전으로 업데이트 (bash 스크립트 내장) |
 | `sqlite3: command not found` | sqlite3 미설치 | `sudo apt install sqlite3` |
 | `jq: command not found` | jq 미설치 | `sudo apt install jq` |
+| `nlm: command not found` | nlm CLI 미설치 | `pipx install notebooklm-mcp-cli` 후 `nlm login` |
+| `nlm login` 인증 실패 | Google OAuth 미완료 | 브라우저에서 Google 계정으로 인증 필요 |
 | `atlas` agent not found | namespace 불일치 | 위 alias symlink 명령 실행 |
 | config.json 스키마 오류 | 직접 편집 시 발생 | `copilot plugin install` 명령만 사용 |
 
