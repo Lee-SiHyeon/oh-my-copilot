@@ -3,7 +3,7 @@
 > oh-my-opencode를 GitHub Copilot CLI에 포팅한 프로덕션급 멀티에이전트 오케스트레이션 플러그인
 
 [![GitHub stars](https://img.shields.io/github/stars/Lee-SiHyeon/oh-my-copilot?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot/stargazers)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -12,7 +12,7 @@
 
 **oh-my-copilot**은 [oh-my-opencode](https://github.com/code-yeongyu/oh-my-openagent)의 멀티에이전트 철학을 GitHub Copilot CLI 환경으로 완전히 이식한 플러그인입니다.
 
-**v2.0.0**부터는 SKILL.md 기반의 레거시 아키텍처에서 **`agents/*.agent.md` 기반의 에이전트 시스템**으로 전면 재설계되었습니다.
+**v2.0.0**부터는 SKILL.md 기반의 레거시 아키텍처에서 **`agents/*.agent.md` 기반의 에이전트 시스템**으로 전면 재설계되었습니다. 현재 사용자 가이드는 **v2.1.0** 기준으로 유지되며, Playwright stealth 로그인 패턴, nlm re-auth 워크플로우, Atlas 운영 원칙 최신화까지 반영합니다.
 
 - **마스터 오케스트레이터**: `@atlas` — 모든 작업을 하위 에이전트에 위임합니다
 - **총 14개 에이전트**: 공유 팀 에이전트 13개 + 개인화용 `personal-advisor`
@@ -22,6 +22,13 @@
 - **개인 에이전트 지원**: `~/.copilot/agents/` 또는 `local/agents/`에 비공개 개인 에이전트 생성 가능
 
 > ⚠️ `skills/` 디렉터리의 레거시 스킬들은 하위 호환을 위해 유지되지만, 주 시스템은 `agents/`입니다.
+
+## ✨ v2.1.0 핵심 업데이트
+
+- **Playwright stealth 로그인 패턴 반영**: `skills/playwright/SKILL.md`에 Google OAuth / NotebookLM용 stealth 로그인 패턴이 문서화되어 있습니다. 표준 Playwright만으로 막히는 경우 `navigator.webdriver` 은닉, `window.chrome` 주입, human-like typing 같은 검증된 우회 패턴을 기준으로 안내합니다.
+- **nlm re-auth 워크플로우 명확화**: 평소에는 `nlm login --check`로 인증 상태를 확인하고, 실패 시 `agents/nlm-researcher.agent.md`에 정리된 Playwright stealth re-auth 절차를 우선 따르며, 필요 시 `nlm login --relogin`을 fallback으로 사용한 뒤 다시 `nlm login --check`로 검증합니다.
+- **Atlas 운영 가이드 현대화**: Atlas는 최신 지침에 맞춰 `web_search`로 사실을 먼저 수집하고, `@nlm-researcher`를 합성·계획용 PRIMARY 브레인으로 사용하며, 복잡한 작업에서는 Heavy Mode 병렬 study group 패턴을 기본 운영 원칙으로 삼습니다.
+- **문서 동기화 원칙**: 플러그인 동작, 스킬, 에이전트, 메타데이터를 변경했다면 `README.md`도 항상 함께 동기화합니다.
 
 ---
 
@@ -109,12 +116,18 @@ sudo apt update && sudo apt install -y sqlite3 jq git
 # pipx로 설치 (pip 직접 사용 시 PEP 668 오류 발생 가능)
 pipx install notebooklm-mcp-cli
 
-# Google 계정으로 인증
+# 최초 1회 Google 계정 인증
 nlm login
+
+# 이후에는 인증 상태를 먼저 점검 (권장)
+nlm login --check
 ```
 
 > - `pipx`가 없으면 먼저 `pip install pipx` 후 설치
-> - `nlm login` 후 브라우저에서 Google OAuth 인증 필요
+> - 최초 설정은 `nlm login`으로 진행하고, 일상적인 상태 점검은 `nlm login --check`를 기본값으로 사용
+> - `nlm login --check`가 실패하면 `agents/nlm-researcher.agent.md`와 `skills/playwright/SKILL.md`에 문서화된 **Playwright stealth re-auth** 절차를 우선 따르세요
+> - 표준 Playwright 로그인은 Google OAuth 자동화 감지에 막힐 수 있으므로 stealth 패턴을 기준 흐름으로 봅니다
+> - stealth 재인증이 여의치 않으면 `nlm login --relogin`을 fallback으로 시도한 뒤 다시 `nlm login --check`로 검증하세요
 > - 인증 완료 후 `nlm --version`으로 정상 동작 확인
 
 ### 플러그인 설치
@@ -144,7 +157,7 @@ ln -s ~/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot/agents/atl
 | `sqlite3: command not found` | sqlite3 미설치 | `sudo apt install sqlite3` |
 | `jq: command not found` | jq 미설치 | `sudo apt install jq` |
 | `nlm: command not found` | nlm CLI 미설치 | `pipx install notebooklm-mcp-cli` 후 `nlm login` |
-| `nlm login` 인증 실패 | Google OAuth 미완료 | 브라우저에서 Google 계정으로 인증 필요 |
+| `nlm login --check` 실패 / 재인증 필요 | 쿠키 만료 또는 Google OAuth 재인증 필요 | `agents/nlm-researcher.agent.md`의 Playwright stealth re-auth 절차 수행 → `nlm login --check` 재실행, 필요 시 `nlm login --relogin` fallback |
 | `atlas` agent not found | namespace 불일치 | 위 alias symlink 명령 실행 |
 | config.json 스키마 오류 | 직접 편집 시 발생 | `copilot plugin install` 명령만 사용 |
 

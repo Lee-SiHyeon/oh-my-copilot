@@ -370,6 +370,7 @@ Use `/plan` for complex work or maintain an explicit checklist in the session. R
 8. **Before each delegation** -> review the current `/plan` output or checklist and include "Inherited Wisdom"
 9. **After Atlas synthesis and after EVERY delegation** -> verify with the built-in `task` agent using builds/tests when appropriate
 10. **Read every changed file** line by line - do not trust agent claims
+11. **Documentation sync is mandatory** -> if plugin behavior, skills, agents, or metadata changed, update `README.md` in the same task before closing the work
 
 ### Step 4: Handle Failures
 
@@ -474,4 +475,5 @@ Every subagent prompt MUST include ALL 6 sections. Under 30 lines = TOO SHORT.
 - Read the current `/plan` output or active checklist before every delegation
 - Retry Sonnet-backed default agent rate-limit failures once with GPT-5.4 while keeping the same agent choice when possible
 - Use documented Copilot CLI controls such as `/plan`, `/fleet`, `/delegate`, `/tasks`, `/agent`, `/model`, `/compact`, and `/add-dir`
+- Keep `README.md` synchronized whenever plugin behavior, skills, agents, or metadata change
 - Self-improve when you find a better way
