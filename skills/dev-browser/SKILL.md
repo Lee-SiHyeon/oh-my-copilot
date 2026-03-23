@@ -24,12 +24,7 @@ Browser automation that maintains page state across script executions. Write sma
 
 Ensure the dev-browser server is running first.
 
-**Windows (PowerShell):**
-```powershell
-Start-Process -NoNewWindow -FilePath "node" -ArgumentList "skills/dev-browser/server.js"
-```
-
-**macOS/Linux:**
+Start the dev-browser server:
 ```bash
 ./skills/dev-browser/server.sh &
 ```
@@ -42,24 +37,6 @@ Wait for `Ready` message before running scripts.
 
 Run from `skills/dev-browser/` directory.
 
-**Windows:**
-```powershell
-cd skills/dev-browser
-@"
-import { connect, waitForPageLoad } from "@/client.js";
-
-const client = await connect();
-const page = await client.page("example", { viewport: { width: 1920, height: 1080 } });
-
-await page.goto("https://example.com");
-await waitForPageLoad(page);
-
-console.log({ title: await page.title(), url: page.url() });
-await client.disconnect();
-"@ | npx tsx --input-type=module
-```
-
-**macOS/Linux:**
 ```bash
 cd skills/dev-browser && npx tsx <<'EOF'
 import { connect, waitForPageLoad } from "@/client.js";

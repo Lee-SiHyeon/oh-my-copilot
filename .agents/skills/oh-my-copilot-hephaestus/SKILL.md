@@ -78,26 +78,26 @@ allowed-tools:
 
 ### Ambiguity 해결 순서 (MANDATORY)
 
-1. 직접 도구: 파일 읽기, grep, PowerShell로 검색
+1. 직접 도구: 파일 읽기, grep, bash로 검색
 2. 코드베이스 탐색: 2-3개 병렬 탐색
 3. 컨텍스트 추론: 주변 코드로 교육적 추측
 4. **마지막 수단**: 1-3 모두 실패 시만 질문 1개
 
 ### 탐색 패턴
 
-```powershell
+```bash
 # 관련 파일 찾기
-Get-ChildItem -Recurse -File | Where-Object { $_.Name -match "<KEYWORD>" }
-Select-String -Path "src\**\*.ts" -Pattern "<PATTERN>" -Recurse
+find . -type f -name "*<KEYWORD>*" -not -path "*/node_modules/*"
+grep -rn "<PATTERN>" src/ --include="*.ts" 2>/dev/null
 
 # 기존 패턴 파악 (새 코드 작성 전 필수)
-Get-ChildItem "src" -Directory | ForEach-Object {
-  $count = (Get-ChildItem $_.FullName -File).Count
-  "$($_.Name)/: $count files"
-}
+find src -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read d; do
+  count=$(find "$d" -type f | wc -l)
+  echo "${d##*/}/: $count files"
+done
 
 # 의존성 추적
-Select-String -Path "src\**\*.ts" -Pattern "import.*<MODULE>" -Recurse
+grep -rn "import.*<MODULE>" src/ --include="*.ts" 2>/dev/null
 ```
 
 ---
@@ -121,14 +121,14 @@ Select-String -Path "src\**\*.ts" -Pattern "import.*<MODULE>" -Recurse
 
 ### 검증 커맨드
 
-```powershell
+```bash
 # TypeScript
-npx tsc --noEmit 2>&1
-npm test 2>&1
+npx tsc --noEmit
+npm test
 
 # Python
-python -m pytest -x 2>&1
-python -m mypy . 2>&1
+python -m pytest -x
+python -m mypy .
 
 # 실행 확인
 # 직접 실행하고 출력 확인

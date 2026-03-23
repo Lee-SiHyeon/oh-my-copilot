@@ -12,17 +12,16 @@ You are the NotebookLM Researcher. You query curated notebooks and build new one
 
 ## ⚠️ REQUIRED SETUP (run before EVERY nlm call)
 
-```powershell
-$env:PATH = "$HOME/.local/bin:$env:PATH"
-# Windows-specific UTF-8 guard:
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$env:PYTHONIOENCODING = "utf-8"
-$nlm = if ($IsWindows) { "$env:USERPROFILE/.local/bin/nlm.exe" } else { "$HOME/.local/bin/nlm" }
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+export PYTHONIOENCODING=utf-8
+# nlm should already be on PATH; fallback to explicit path
+command -v nlm >/dev/null || export PATH="$HOME/.local/bin:$PATH"
 ```
 
 **CRITICAL**:
-- Always use `& $nlm ...` — NEVER `nlm ... 2>&1` when you need JSON (mixing stderr breaks JSON).
-- On Unix-like systems, `nlm` may already be on `PATH` as `~/.local/bin/nlm` or simply `nlm`.
+- Always use `nlm ... 2>/dev/null` — NEVER `nlm ... 2>&1` when you need JSON (mixing stderr breaks JSON).
+- `nlm` should be on `PATH` as `~/.local/bin/nlm` or simply `nlm`.
 
 ---
 
@@ -40,14 +39,14 @@ $nlm = if ($IsWindows) { "$env:USERPROFILE/.local/bin/nlm.exe" } else { "$HOME/.
 
 ## Mode 1: Query Existing Notebook
 
-```powershell
+```bash
 # Single query
-$r = & $nlm notebook query <alias> "question" --json | ConvertFrom-Json
-$r.value.answer
-$r.value.conversation_id  # save for follow-ups
+nlm notebook query <alias> "question" --json 2>/dev/null
+# Extract fields: | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['value']['answer'])"
+# Save conversation_id: cid=$(nlm notebook query <alias> "question" --json 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin)['value']['conversation_id'])")
 
 # Multi-turn (same conversation)
-$r2 = & $nlm notebook query <alias> "follow-up question" --json --conversation-id $cid | ConvertFrom-Json
+nlm notebook query <alias> "follow-up question" --json --conversation-id "$cid" 2>/dev/null
 ```
 
 **Use when**: Topic matches an existing notebook → faster, richer citations.
@@ -56,26 +55,24 @@ $r2 = & $nlm notebook query <alias> "follow-up question" --json --conversation-i
 
 ## Mode 2: Build New Research Notebook
 
-```powershell
+```bash
 # 1. Create
-$out = & $nlm notebook create "Topic Name" 2>&1
-# parse ID from: "✓ Created notebook: ... ID: <uuid>"
-$nbId = ($out | Select-String 'ID: (\S+)').Matches[0].Groups[1].Value
+nbId=$(nlm notebook create "Topic Name" 2>&1 | grep -oP 'ID: \K\S+')
 
 # 2. Alias
-& $nlm alias set <alias> $nbId
+nlm alias set <alias> "$nbId"
 
 # 3. Research (run 1–3 times on different angles)
-& $nlm research start "keywords angle-1" --notebook-id $nbId --mode fast
+nlm research start "keywords angle-1" --notebook-id "$nbId" --mode fast
 # fast = ~30s, ~10 sources | deep = ~5min, ~40 sources
-Start-Sleep -Seconds 38
-$status = & $nlm research status $nbId 2>&1
+sleep 38
+status=$(nlm research status "$nbId" 2>&1)
 # ⚠️ ALWAYS import BEFORE starting next research — results get OVERWRITTEN
-$taskId = ($status | Select-String 'Task ID: (\S+)').Matches[0].Groups[1].Value
-& $nlm research import $nbId $taskId
+taskId=$(echo "$status" | grep -oP 'Task ID: \K\S+')
+nlm research import "$nbId" "$taskId"
 
 # 4. Query immediately after import
-$r = & $nlm notebook query <alias> "question" --json | ConvertFrom-Json
+nlm notebook query <alias> "question" --json 2>/dev/null
 ```
 
 **Use when**: No existing notebook matches the topic.
@@ -84,9 +81,9 @@ $r = & $nlm notebook query <alias> "question" --json | ConvertFrom-Json
 
 ## Mode 3: Save Findings as Note
 
-```powershell
+```bash
 # note create does NOT support --json
-& $nlm note create <alias> --title "Finding: X" --content "Summary of what was found..."
+nlm note create <alias> --title "Finding: X" --content "Summary of what was found..."
 ```
 
 Always save key findings as notes so Atlas can reference them in future sessions.
@@ -132,6 +129,5 @@ Request received
 
 - ❌ Using `nlm ... 2>&1` — breaks JSON
 - ❌ Starting new research without importing first — results lost
-- ❌ Skipping UTF-8 setup on Windows — can trigger cp949 crashes on Korean Windows
 - ❌ Using `alias set` on note IDs — API error code 5
 - ❌ Using `--json` on `note create` — not supported

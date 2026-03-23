@@ -53,26 +53,27 @@ allowed-tools:
 사용자에게 질문하기 **전에** 코드베이스 탐색:
 
 ### 코드베이스 패턴 탐색
-```powershell
+```bash
 # 비슷한 구현체 찾기
-Get-ChildItem -Recurse -File -Include "*.ts","*.py","*.js" | 
-  Select-String -Pattern "class|function|interface" | 
-  Select-Object Path, LineNumber, Line | Select-Object -First 20
+find . -type f \( -name "*.ts" -o -name "*.py" -o -name "*.js" \) \
+  -not -path "*/node_modules/*" \
+  | xargs grep -ln "class\|function\|interface" 2>/dev/null | head -20
 
 # 기존 구조 파악
-Get-ChildItem src -Directory | ForEach-Object { "$($_.Name)/" }
+ls src/ 2>/dev/null | sed 's/$/\//'
 
 # 테스트 인프라 확인
-Test-Path "jest.config.*", "vitest.config.*", "pytest.ini", "*.test.ts" | 
-  Where-Object { $_ }
+for f in jest.config.* vitest.config.* pytest.ini; do
+  [ -e "$f" ] && echo "Found: $f"
+done
+find . -name "*.test.ts" -not -path "*/node_modules/*" | head -3
 ```
 
 ### 관련 문서/설정 탐색
-```powershell
+```bash
 # 패키지 의존성
-if (Test-Path package.json) { 
-  (Get-Content package.json | ConvertFrom-Json).dependencies 
-}
+[ -f package.json ] && python3 -c "import json; d=json.load(open('package.json')); print(d.get('dependencies', {}))"
+[ -f requirements.txt ] && cat requirements.txt
 ```
 
 ---
@@ -84,11 +85,12 @@ if (Test-Path package.json) {
 **포커스: 안전성과 동작 보존**
 
 탐색:
-```powershell
+```bash
 # 리팩토링 대상의 모든 사용처 찾기
-Select-String -Path "src/**/*.ts" -Pattern "<TARGET_NAME>" -Recurse
+grep -rn "<TARGET_NAME>" src/ --include="*.ts" 2>/dev/null
 # 관련 테스트 찾기
-Get-ChildItem -Recurse -Filter "*.test.*" | Select-String -Pattern "<TARGET_NAME>"
+find . -name "*.test.*" -not -path "*/node_modules/*" \
+  | xargs grep -l "<TARGET_NAME>" 2>/dev/null
 ```
 
 핵심 질문:
@@ -104,12 +106,12 @@ Get-ChildItem -Recurse -Filter "*.test.*" | Select-String -Pattern "<TARGET_NAME
 **포커스: 기존 패턴 발견 먼저**
 
 탐색:
-```powershell
+```bash
 # 비슷한 기능 2-3개 찾기
-Get-ChildItem "src" -Directory | ForEach-Object {
-  $files = Get-ChildItem $_.FullName -File
-  [PSCustomObject]@{ Dir = $_.Name; Files = $files.Count }
-} | Sort-Object Files -Descending | Select-Object -First 5
+find src -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read d; do
+  count=$(find "$d" -type f | wc -l)
+  printf "%4d  %s\n" "$count" "$d"
+done | sort -rn | head -5
 ```
 
 탐색 결과를 바탕으로 질문:
@@ -122,10 +124,14 @@ Get-ChildItem "src" -Directory | ForEach-Object {
 
 ### TEST INFRASTRUCTURE 확인 (Build/Refactor 필수)
 
-```powershell
+```bash
 # 테스트 인프라 존재 여부
-$hasTests = (Test-Path "jest.config.*") -or (Test-Path "vitest.config.*") -or 
-            (Test-Path "pytest.ini") -or (Get-ChildItem -Recurse -Filter "*.test.*" -ErrorAction SilentlyContinue).Count -gt 0
+hasTests=false
+for f in jest.config.* vitest.config.* pytest.ini; do
+  [ -e "$f" ] && { hasTests=true; break; }
+done
+find . -name "*.test.*" -not -path "*/node_modules/*" | grep -q . && hasTests=true
+echo "테스트 인프라: $hasTests"
 ```
 
 **인프라 있을 때:**

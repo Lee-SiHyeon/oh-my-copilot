@@ -44,36 +44,33 @@ allowed-tools:
 
 ### 프로젝트 구조 파악
 
-```powershell
-# 디렉토리 깊이 + 파일 수
-$dirs = Get-ChildItem -Recurse -Directory | 
-  Where-Object { $_.FullName -notmatch 'node_modules|\.git|dist|build|venv' }
+```bash
+# 디렉토리 목록 (제외 패턴 적용)
+find . -type d -not -path "*/node_modules/*" -not -path "*/.git/*" \
+  -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/venv/*"
 
 # 확장자별 파일 분포
-Get-ChildItem -Recurse -File | 
-  Where-Object { $_.FullName -notmatch 'node_modules|\.git|dist|build' } |
-  Group-Object Extension | Sort-Object Count -Descending | Select-Object -First 10
+find . -type f -not -path "*/node_modules/*" -not -path "*/.git/*" \
+  -not -path "*/dist/*" -not -path "*/build/*" \
+  | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -10
 
 # 디렉토리별 파일 수 (상위 20개)
-Get-ChildItem -Recurse -File |
-  Where-Object { $_.FullName -notmatch 'node_modules|\.git|dist|build' } |
-  Group-Object DirectoryName | Sort-Object Count -Descending | Select-Object -First 20
+find . -type f -not -path "*/node_modules/*" -not -path "*/.git/*" \
+  | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -20
 
 # 기존 AGENTS.md / CLAUDE.md 찾기
-Get-ChildItem -Recurse -Filter "AGENTS.md" |
-  Where-Object { $_.FullName -notmatch 'node_modules' }
+find . -name "AGENTS.md" -not -path "*/node_modules/*"
 ```
 
 ### 동적 에이전트 스폰 (프로젝트 규모 기반)
 
-```powershell
-$totalFiles = (Get-ChildItem -Recurse -File | 
-  Where-Object { $_.FullName -notmatch 'node_modules|\.git' }).Count
-$totalLines = (Get-ChildItem -Recurse -File -Include "*.ts","*.py","*.js","*.go" |
-  Where-Object { $_.FullName -notmatch 'node_modules' } |
-  ForEach-Object { (Get-Content $_.FullName).Count } | Measure-Object -Sum).Sum
-$largeFiles = (Get-ChildItem -Recurse -File -Include "*.ts","*.py" |
-  Where-Object { (Get-Content $_.FullName).Count -gt 500 }).Count
+```bash
+totalFiles=$(find . -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | wc -l)
+totalLines=$(find . -type f \( -name "*.ts" -o -name "*.py" -o -name "*.js" -o -name "*.go" \) \
+  -not -path "*/node_modules/*" | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+largeFiles=$(find . -type f \( -name "*.ts" -o -name "*.py" \) -not -path "*/node_modules/*" \
+  | xargs -I{} awk 'END{if(NR>500)print FILENAME}' {} 2>/dev/null | wc -l)
+echo "총 파일: $totalFiles, 총 줄수: $totalLines, 대형 파일: $largeFiles"
 ```
 
 | 요소 | 임계값 | 추가 탐색 |

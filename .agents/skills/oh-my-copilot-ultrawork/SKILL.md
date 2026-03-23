@@ -73,14 +73,15 @@ TodoWrite([
 
 **코드베이스 탐색 (병렬):**
 
-```powershell
+```bash
 # 프로젝트 구조 파악
-Get-ChildItem -Recurse -File | Where-Object { $_.Extension -match '\.(ts|py|js|go|rs)$' } | 
-  Group-Object DirectoryName | Sort-Object Count -Descending | Select-Object -First 10
+find . -type f \( -name "*.ts" -o -name "*.py" -o -name "*.js" -o -name "*.go" -o -name "*.rs" \) \
+  -not -path "*/node_modules/*" \
+  | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -10
 
 # 패키지 의존성
-if (Test-Path package.json) { Get-Content package.json | ConvertFrom-Json | Select-Object -ExpandProperty dependencies }
-if (Test-Path requirements.txt) { Get-Content requirements.txt }
+[ -f package.json ] && python3 -c "import json; d=json.load(open('package.json')); print(d.get('dependencies', {}))"
+[ -f requirements.txt ] && cat requirements.txt
 ```
 
 탐색 중 파악할 것:
@@ -99,12 +100,12 @@ if (Test-Path requirements.txt) { Get-Content requirements.txt }
 - 각 구현 후 즉시 검증
 
 **검증 방법:**
-```powershell
+```bash
 # TypeScript/Node
 npx tsc --noEmit
 npm test
 
-# Python  
+# Python
 python -m pytest
 python -m mypy .
 

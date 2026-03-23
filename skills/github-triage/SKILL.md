@@ -51,28 +51,29 @@ Write — /tmp/ 에만
 
 ## Phase 0: 설정
 
-```powershell
-$REPO = gh repo view --json nameWithOwner -q .nameWithOwner
-$REPORT_DIR = "/tmp/$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-New-Item -ItemType Directory -Force $REPORT_DIR
-$COMMIT_SHA = git rev-parse HEAD
-Write-Host "레포: $REPO, 보고서: $REPORT_DIR"
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+REPORT_DIR="/tmp/$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$REPORT_DIR"
+COMMIT_SHA=$(git rev-parse HEAD)
+echo "레포: $REPO, 보고서: $REPORT_DIR"
 ```
 
 ---
 
 ## Phase 1: 오픈 아이템 가져오기
 
-```powershell
+```bash
 # 이슈 목록 (본문 제외 — JSON 파싱 문제 방지)
-$ISSUES = gh issue list --repo $REPO --state open --limit 500 `
-  --json number,title,labels,author,createdAt | ConvertFrom-Json
+ISSUES=$(gh issue list --repo "$REPO" --state open --limit 500 \
+  --json number,title,labels,author,createdAt)
 
 # PR 목록
-$PRS = gh pr list --repo $REPO --state open --limit 500 `
-  --json number,title,labels,author,headRefName,baseRefName,isDraft,createdAt | ConvertFrom-Json
+PRS=$(gh pr list --repo "$REPO" --state open --limit 500 \
+  --json number,title,labels,author,headRefName,baseRefName,isDraft,createdAt)
 
-Write-Host "이슈: $($ISSUES.Count), PR: $($PRS.Count)"
+echo "이슈: $(echo "$ISSUES" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')"
+echo "PR: $(echo "$PRS" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')"
 ```
 
 **대형 레포 처리**: 50개 초과 시 전체 처리. 샘플링 금지.
@@ -94,12 +95,13 @@ Write-Host "이슈: $($ISSUES.Count), PR: $($PRS.Count)"
 
 ## Phase 3: 병렬 분석 (서브에이전트)
 
-```powershell
-# 이슈별 TodoWrite 생성
-foreach ($issue in $ISSUES) {
-  Write-Host "분석: #$($issue.number) $($issue.title)"
-  # 각 이슈별 개별 분석 수행
-}
+```bash
+# 이슈별 분석 시작
+echo "$ISSUES" | python3 -c "
+import sys, json
+for issue in json.load(sys.stdin):
+    print(f'분석: #{issue[\"number\"]} {issue[\"title\"]}')
+"
 ```
 
 ### 각 서브에이전트 공통 프롬프트

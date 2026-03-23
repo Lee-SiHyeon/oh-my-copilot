@@ -93,17 +93,16 @@ oh-my-opencode Sisyphus 에이전트를 Copilot CLI에 포팅한 스킬입니다
 
 코드 변경 전 항상 탐색:
 
-```powershell
+```bash
 # 1. 관련 파일 구조 파악
-Get-ChildItem "src" -Recurse -File -Include "*.ts","*.py" | 
-  Where-Object { $_.Name -match "<KEYWORD>" }
+find src -type f \( -name "*.ts" -o -name "*.py" \) \
+  | grep "<KEYWORD>" 2>/dev/null
 
 # 2. 기존 패턴 확인
-Select-String -Path "src/**/*.ts" -Pattern "<PATTERN>" -Recurse | 
-  Select-Object -First 5
+grep -rn "<PATTERN>" src/ --include="*.ts" 2>/dev/null | head -5
 
-# 3. 의존성 확인  
-Select-String -Path "src/**/*.ts" -Pattern "import.*<MODULE>" -Recurse
+# 3. 의존성 확인
+grep -rn "import.*<MODULE>" src/ --include="*.ts" 2>/dev/null
 ```
 
 ---
