@@ -1,0 +1,39 @@
+name: TDD - Plugin Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  bats-tests:
+    name: bats (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y sqlite3 jq bats bats-assert bats-file bats-support
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install sqlite3 jq bats-core
+
+      - name: Install bats helpers (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # bats-support, bats-assert, bats-file via submodules on macOS
+          git submodule update --init --recursive || true
+
+      - name: Run bats tests
+        uses: bats-core/bats-action@3
+        with:
+          tests: tests/unit/**/*.bats
+          arguments: --timing --print-output-on-failure
