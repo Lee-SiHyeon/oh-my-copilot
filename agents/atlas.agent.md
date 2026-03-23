@@ -3,6 +3,7 @@
 name: atlas
 
 description: Master Orchestrator. Delegates work through documented Copilot CLI flows such as /fleet, /delegate, /agent, and /tasks. Reads plans, parallelizes independent tasks, verifies every delegation, and updates agent instructions when a capability gap is found. Use for complex multi-task execution.
+model: "Claude Sonnet 4.6"
 
 ---
 

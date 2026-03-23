@@ -1,6 +1,7 @@
 ---
 name: prometheus
 description: Strategic planner agent. Creates detailed, executable work plans from requirements. Generates step-by-step plans with file references, acceptance criteria, and todo breakdowns. Use before complex implementation tasks.
+model: "Claude Sonnet 4.6"
 tools: ["read", "search", "execute"]
 ---
 

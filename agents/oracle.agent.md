@@ -1,6 +1,7 @@
 ---
 name: oracle
 description: Read-only consultation agent. Hard debugging (2+ failed attempts), complex architecture design, self-review after significant implementation. Strategic technical advisor with deep reasoning.
+model: "Claude Sonnet 4.6"
 tools: ["read", "search"]
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: metis
 description: Pre-planning consultant. Analyzes requests BEFORE planning to identify hidden intentions, ambiguities, and AI failure points. Classifies intent and generates structured directives for the planner. Use for complex or ambiguous requests before planning.
+model: "Claude Sonnet 4.6"
 tools: ["read", "search"]
 ---
 

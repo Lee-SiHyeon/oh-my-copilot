@@ -1,6 +1,7 @@
 ---
 name: personal-advisor
 description: Personal agent advisor. Analyzes session history, MCP/server config signals, and agent usage patterns from scripts/collect-session-data.sh, then recommends 1-3 user-local specialist agents and can draft them under ~/.copilot/agents/ without putting personal agents in the shared plugin agents/ folder.
+model: "Claude Sonnet 4.6"
 tools: ["execute", "read", "edit"]
 ---
 

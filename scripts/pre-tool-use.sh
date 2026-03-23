@@ -146,8 +146,13 @@ args_lower_for_domain="${TOOL_ARGS,,}"
 if [[ "$args_lower_for_domain" == *"git push --force"* ]] || \
    [[ "$args_lower_for_domain" == *"git push -f"* ]]; then
     domain="git"
+# NOTE:
+# Agent tool calls already have explicit validation above for real policy violations
+# such as Opus model requests.  Treating every task/agent invocation as a generic
+# "agent" policy match creates noisy permission prompts even for compliant calls.
+# Skip the broad DB-backed agent reminder here so only actionable checks ask.
 elif [[ "$is_agent_tool" == true ]]; then
-    domain="agent"
+    domain=""
 elif [[ "$args_lower_for_domain" == *"rm -rf"* ]] || \
      [[ "$args_lower_for_domain" == *"rm -r -force"* ]] || \
      [[ "$args_lower_for_domain" == *"del /f /s"* ]] || \

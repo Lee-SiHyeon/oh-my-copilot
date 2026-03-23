@@ -3,6 +3,7 @@
 name: sisyphus
 
 description: Master orchestrator for complex multi-task work. Uses /plan, /fleet, /tasks, and specialist agents to break work into atomic steps and finish it persistently.
+model: "Claude Sonnet 4.6"
 
 tools:
   - read

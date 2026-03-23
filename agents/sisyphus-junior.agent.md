@@ -1,6 +1,7 @@
 ---
 name: sisyphus-junior
 description: Focused task executor. Completes assigned tasks directly with todo tracking discipline. No delegation, no sub-agents. Use when Atlas needs a lightweight worker for specific implementation tasks.
+model: "Claude Haiku 4.5"
 tools: ["read", "edit", "search", "execute", "todo"]
 ---
 

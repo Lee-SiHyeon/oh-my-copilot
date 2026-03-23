@@ -3,6 +3,7 @@
 name: ultrawork
 
 description: Full orchestration mode combining planning, parallel execution, and verification. Uses /plan, /fleet, /tasks, and specialist agents for large, complex tasks requiring both planning and deep implementation.
+model: "Claude Sonnet 4.6"
 
 tools:
   - "*"

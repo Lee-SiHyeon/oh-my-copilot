@@ -1,6 +1,7 @@
 ---
 name: momus
 description: Plan reviewer. Reviews work plans for executability — verifies file references exist, tasks are startable, catches BLOCKING issues only. Outputs OKAY or REJECT with max 3 specific issues. Use after creating a plan before executing it.
+model: "Claude Haiku 4.5"
 tools: ["read", "search"]
 ---
 
