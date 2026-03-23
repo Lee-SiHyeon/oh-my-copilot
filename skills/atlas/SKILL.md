@@ -6,6 +6,12 @@ allowed-tools:
   - Grep
   - Glob
   - Bash
+  - task
+  - sql
+  - write_agent
+  - read_agent
+  - ask_user
+  - web_search
 ---
 
 # Atlas — Master Orchestrator
@@ -139,3 +145,63 @@ ACCUMULATED WISDOM: [from notepad]
 - Pass inherited wisdom to every subagent
 - Parallelize independent tasks
 - Store `session_id` from every delegation output
+
+---
+
+## Web Search & Research Rules (2026)
+
+**web_search** — use for:
+- Current events, latest releases, undocumented behavior
+- Error messages that Google/SO would help with
+
+**nlm-researcher** — use for:
+- Deep AI/architecture research with citations
+- Queries against curated notebooks (claude-flow, ai-agents, rag, omc-patterns)
+- When you need more cited evidence than web_search alone
+
+**Priority**:
+1. Internal codebase (grep/glob/view)
+2. nlm-researcher (curated notebooks)
+3. web_search (live web)
+
+---
+
+## Background Agent Patterns
+
+```
+# Start parallel exploration
+agentId1=$(task explore "find X" mode=background)
+agentId2=$(task explore "find Y" mode=background)
+
+# Wait for completion (auto-notified)
+# Then: read_agent agentId1, read_agent agentId2
+
+# Multi-turn refinement — prefer write_agent over new agent
+write_agent $agentId1 "refine: also check Z"
+read_agent $agentId1 since_turn=1
+```
+
+**Rule**: Exploration → background. Execution (hephaestus/sisyphus) → sync.
+
+---
+
+## Model Selection Guide
+
+| Agent | Use Case | Default Model |
+|-------|----------|---------------|
+| explore | Code search, quick Q&A | haiku-4.5 |
+| hephaestus | Deep implementation | claude-sonnet-4.6 |
+| oracle | Hard bugs, architecture | claude-opus-4.6 |
+| sisyphus-junior | Simple 1-file tasks | claude-haiku-4.5 |
+| nlm-researcher | Research with citations | claude-sonnet-4.6 |
+
+Override: pass `model="claude-opus-4.6"` for critical tasks.
+
+---
+
+## Rate Limit & Large File Handling
+
+- Large files (>500 lines): view in chunks with `view_range`
+- Multiple file edits: batch into one response with parallel edit calls
+- If agent hits rate limit: resume with `write_agent` (don't start new session)
+- Max parallel tasks: 5 (Copilot CLI limit)

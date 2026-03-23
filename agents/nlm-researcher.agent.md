@@ -25,6 +25,51 @@ command -v nlm >/dev/null || export PATH="$HOME/.local/bin:$PATH"
 
 ---
 
+## 🔄 Re-authentication (When Cookies Expire)
+
+Cookies are stored at `~/.notebooklm-mcp-cli/profiles/default/` (27 cookies for `shyeon0528@gmail.com`).
+Google's automation detection blocks standard Playwright — use the stealth method below.
+
+### Step 0: Check current auth status first
+
+```bash
+nlm login --check
+# ✓ Authentication valid! Notebooks found: 20  →  no action needed
+# ✗ Not authenticated / 0 notebooks            →  proceed to Step 1
+```
+
+### Step 1 (✅ VERIFIED — Primary Method): Playwright Stealth Login
+
+Bypasses Google automation detection via `navigator.webdriver=false`, `window.chrome` injection, and human-like typing.
+
+```bash
+# Ensure Playwright Chromium is installed
+python3 -m playwright install chromium
+
+# Run the verified stealth login script
+python3 /home/worker/nlm_playwright_login.py
+```
+
+> This is the **only confirmed working method** for `shyeon0528@gmail.com`.
+> Standard Playwright (without stealth patches) is blocked by Google.
+
+### Step 2 (Fallback): nlm CLI Direct Re-login
+
+```bash
+nlm login --relogin
+```
+
+> May be blocked by Google automation detection. Try Step 1 first if this fails.
+
+### Step 3: Confirm Success
+
+```bash
+nlm login --check
+# Expected output: ✓ Authentication valid! Notebooks found: 20
+```
+
+---
+
 ## Notebook Aliases (pre-configured)
 
 | Alias | Content |

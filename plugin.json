@@ -1,15 +1,19 @@
 {
   "name": "oh-my-copilot",
-  "description": "Production-grade agentic framework for GitHub Copilot CLI. Ports oh-my-opencode's multi-agent system: Atlas orchestrator, Sisyphus executor, Hephaestus implementor, Oracle advisor, and 8 specialized agents with safety hooks.",
-  "version": "2.0.0",
+  "description": "Production-grade agentic framework for GitHub Copilot CLI. 14 specialized agents (Atlas, Sisyphus, Hephaestus, Oracle, Prometheus, Metis, Momus, Explore, Librarian, Multimodal-Looker, Ultrawork, NLM-Researcher, Personal-Advisor, Sisyphus-Junior) with TDD-verified safety hooks and NotebookLM research integration.",
+  "version": "2.1.0",
   "author": {
     "name": "Lee SiHyeon",
     "url": "https://github.com/Lee-SiHyeon"
   },
   "license": "MIT",
   "repository": "https://github.com/Lee-SiHyeon/oh-my-copilot",
-  "keywords": ["agents", "orchestration", "atlas", "sisyphus", "agentic", "fleet"],
+  "keywords": ["agents", "orchestration", "atlas", "sisyphus", "agentic", "fleet", "nlm", "notebooklm", "tdd", "playwright", "hooks"],
   "agents": "agents/",
   "skills": ["skills/", "."],
-  "hooks": "hooks.json"
+  "hooks": "hooks.json",
+  "changelog": {
+    "2.1.0": "nlm-researcher 재인증 절차 추가, playwright stealth 패턴 문서화, atlas SKILL 최신화, TDD 28/28 PASS 검증",
+    "2.0.0": "Initial production release with 14 agents, 21 skills, bats TDD framework"
+  }
 }
