@@ -79,7 +79,6 @@ $legacyDbPath = Join-Path (Get-PluginRoot) 'omc-memory.db'
 if (($DbPath -ne $legacyDbPath) -and -not (Test-Path $DbPath) -and (Test-Path $legacyDbPath)) {
     Copy-Item -Path $legacyDbPath -Destination $DbPath -Force
     Write-Host "[omc] Migrated legacy memory DB to user-local state: $DbPath"
-    exit 0
 }
 
 $sqlite3 = Resolve-Sqlite3Path
@@ -121,6 +120,19 @@ CREATE TABLE IF NOT EXISTS agent_q_table (
     PRIMARY KEY (task_signature, agent_id)
 );
 
+CREATE TABLE IF NOT EXISTS improvement_candidates (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    proposal_kind     TEXT    DEFAULT 'shared_source_change',
+    plugin_root       TEXT    NOT NULL,
+    git_remote_name   TEXT,
+    git_remote_url    TEXT,
+    git_branch        TEXT,
+    head_commit       TEXT,
+    changed_paths     TEXT    NOT NULL,
+    status_snapshot   TEXT    NOT NULL
+);
+
 -- Seed meta_policy_rules with known omc rules
 INSERT OR IGNORE INTO meta_policy_rules (id, task_domain, predicate_condition, action_constraint)
 VALUES
@@ -144,7 +156,7 @@ INSERT OR IGNORE INTO agent_q_table (task_signature, agent_id, q_value, trials) 
 $schema | & $sqlite3 $DbPath
 if ($LASTEXITCODE -eq 0) {
     Write-Host "[omc] Memory DB initialized: $DbPath"
-    Write-Host "[omc] Tables: semantic_memory, meta_policy_rules, agent_q_table"
+    Write-Host "[omc] Tables: semantic_memory, meta_policy_rules, agent_q_table, improvement_candidates"
     "SELECT name FROM sqlite_master WHERE type='table';" | & $sqlite3 $DbPath
 } else {
     Write-Error "[omc] Failed to initialize memory DB"

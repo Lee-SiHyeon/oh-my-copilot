@@ -28,18 +28,17 @@ if ! command -v sqlite3 &>/dev/null; then
 fi
 
 # ── Legacy DB migration ───────────────────────────────────────────────────────
-# If a database exists in the old plugin-root location, migrate it to the new
-# canonical path and exit — no schema re-creation needed.
+# If a database exists in the old plugin-root location, migrate it once to the
+# new canonical path, then continue so schema upgrades are still applied.
 
 LEGACY_DB="$PLUGIN_ROOT/omc-memory.db"
 
-if [[ -f "$LEGACY_DB" ]]; then
+if [[ "$DB_PATH" != "$LEGACY_DB" && ! -f "$DB_PATH" && -f "$LEGACY_DB" ]]; then
     echo "[omc] Legacy DB detected at: $LEGACY_DB"
     echo "[omc] Migrating → $DB_PATH"
     mkdir -p "$(dirname "$DB_PATH")"
     cp "$LEGACY_DB" "$DB_PATH"
     echo "[omc] Migration complete."
-    exit 0
 fi
 
 # ── Ensure target directory exists ───────────────────────────────────────────
@@ -81,6 +80,19 @@ CREATE TABLE IF NOT EXISTS agent_q_table (
     last_reward          REAL    DEFAULT 0.0,
     last_updated         DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (task_signature, agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS improvement_candidates (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    proposal_kind     TEXT    DEFAULT 'shared_source_change',
+    plugin_root       TEXT    NOT NULL,
+    git_remote_name   TEXT,
+    git_remote_url    TEXT,
+    git_branch        TEXT,
+    head_commit       TEXT,
+    changed_paths     TEXT    NOT NULL,
+    status_snapshot   TEXT    NOT NULL
 );
 
 -- ── Seed: meta_policy_rules ──────────────────────────────────────────────────

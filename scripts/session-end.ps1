@@ -21,6 +21,45 @@ function Get-UserStateRoot {
     Join-Path (Get-CopilotRoot) 'oh-my-copilot'
 }
 
+function Test-IsWindows {
+    $env:OS -eq 'Windows_NT'
+}
+
+function Resolve-Sqlite3Path {
+    $command = Get-Command sqlite3 -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    $command = Get-Command sqlite3.exe -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+
+    if (Test-IsWindows) {
+        $localAppData = $env:LOCALAPPDATA
+        if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+            $wingetPath = Join-Path $localAppData 'Microsoft\WinGet\Packages\SQLite.SQLite_Microsoft.Winget.Source_8wekyb3d8bbwe\sqlite3.exe'
+            if (Test-Path $wingetPath) { return $wingetPath }
+        }
+    }
+
+    $pathEntries = New-Object System.Collections.ArrayList
+    foreach ($pathValue in @($env:PATH, [Environment]::GetEnvironmentVariable('PATH', 'User'), [Environment]::GetEnvironmentVariable('PATH', 'Machine'))) {
+        if ([string]::IsNullOrWhiteSpace($pathValue)) { continue }
+        foreach ($entry in ($pathValue -split [IO.Path]::PathSeparator)) {
+            if (-not [string]::IsNullOrWhiteSpace($entry) -and -not ($pathEntries -contains $entry)) {
+                [void]$pathEntries.Add($entry)
+            }
+        }
+    }
+
+    foreach ($entry in $pathEntries) {
+        foreach ($candidateName in @('sqlite3', 'sqlite3.exe')) {
+            $candidate = Join-Path $entry $candidateName
+            if (Test-Path $candidate) { return $candidate }
+        }
+    }
+
+    return $null
+}
+
 function Test-LegacyLearningsFile {
     param(
         [string]$Path
@@ -136,6 +175,132 @@ function Test-IsReadmeSyncGuardPath {
     )
 }
 
+function ConvertTo-SqliteLiteral {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if ($null -eq $Value) { return '' }
+    return $Value -replace "'", "''"
+}
+
+function Ensure-ImprovementCandidatesTable {
+    param(
+        [string]$DbPath
+    )
+
+    $sqlite3 = Resolve-Sqlite3Path
+    if (-not $sqlite3) {
+        throw "[omc] sqlite3 is required to queue shared-source improvement proposals"
+    }
+
+    $initScript = Join-Path $PSScriptRoot 'init-memory.ps1'
+    if (-not (Test-Path $DbPath) -and (Test-Path $initScript)) {
+        [void](& $initScript -DbPath $DbPath 2>$null)
+    }
+
+    $schema = @"
+CREATE TABLE IF NOT EXISTS improvement_candidates (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    proposal_kind     TEXT    DEFAULT 'shared_source_change',
+    plugin_root       TEXT    NOT NULL,
+    git_remote_name   TEXT,
+    git_remote_url    TEXT,
+    git_branch        TEXT,
+    head_commit       TEXT,
+    changed_paths     TEXT    NOT NULL,
+    status_snapshot   TEXT    NOT NULL
+);
+"@
+
+    $schema | & $sqlite3 $DbPath | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "[omc] Failed to ensure improvement_candidates table"
+    }
+
+    return $sqlite3
+}
+
+function Resolve-GitRemoteContext {
+    param(
+        [string]$GitExe
+    )
+
+    $remoteName = ''
+    $upstreamRef = @(& $GitExe rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>$null)
+    if ($upstreamRef.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($upstreamRef[0])) {
+        $candidate = $upstreamRef[0].Trim()
+        if ($candidate -match '/') {
+            $remoteName = ($candidate -split '/')[0]
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($remoteName)) {
+        [void](& $GitExe remote get-url origin 2>$null)
+        if ($LASTEXITCODE -eq 0) {
+            $remoteName = 'origin'
+        } else {
+            $remoteName = (@(& $GitExe remote 2>$null) | Select-Object -First 1)
+        }
+    }
+
+    $remoteUrl = ''
+    if (-not [string]::IsNullOrWhiteSpace($remoteName)) {
+        $remoteUrl = (@(& $GitExe remote get-url $remoteName 2>$null) | Select-Object -First 1)
+    }
+
+    [PSCustomObject]@{
+        Name = $remoteName
+        Url  = $remoteUrl
+    }
+}
+
+function Add-ImprovementCandidate {
+    param(
+        [string]$DbPath,
+        [string]$GitExe,
+        [string]$PluginRoot,
+        [string[]]$SharedPaths,
+        [string[]]$StatusLines
+    )
+
+    $sqlite3 = Ensure-ImprovementCandidatesTable -DbPath $DbPath
+    $remoteContext = Resolve-GitRemoteContext -GitExe $GitExe
+    $branchName = (@(& $GitExe rev-parse --abbrev-ref HEAD 2>$null) | Select-Object -First 1)
+    $headCommit = (@(& $GitExe rev-parse HEAD 2>$null) | Select-Object -First 1)
+    $changedPathsSnapshot = ($SharedPaths | Select-Object -Unique) -join "`n"
+    $statusSnapshot = $StatusLines -join "`n"
+
+    $insert = @"
+INSERT INTO improvement_candidates (
+    proposal_kind,
+    plugin_root,
+    git_remote_name,
+    git_remote_url,
+    git_branch,
+    head_commit,
+    changed_paths,
+    status_snapshot
+) VALUES (
+    'shared_source_change',
+    '$(ConvertTo-SqliteLiteral $PluginRoot)',
+    '$(ConvertTo-SqliteLiteral $remoteContext.Name)',
+    '$(ConvertTo-SqliteLiteral $remoteContext.Url)',
+    '$(ConvertTo-SqliteLiteral $branchName)',
+    '$(ConvertTo-SqliteLiteral $headCommit)',
+    '$(ConvertTo-SqliteLiteral $changedPathsSnapshot)',
+    '$(ConvertTo-SqliteLiteral $statusSnapshot)'
+);
+"@
+
+    $insert | & $sqlite3 $DbPath | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "[omc] Failed to record shared-source improvement proposal"
+    }
+}
+
 $copilotRoot        = Get-CopilotRoot
 $pluginRoot         = Get-PluginRoot
 $logPath            = Join-Path $copilotRoot 'session.log'
@@ -144,77 +309,70 @@ $timestamp          = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $currentDirectory   = (Get-Location).Path
 $git                = Get-Command git -ErrorAction SilentlyContinue
 
-if (-not $DryRun) {
-    $statePaths = Ensure-OmcState
-    $learnPath  = $statePaths.LearnPath
-} else {
-    $learnPath = Join-Path (Get-UserStateRoot) 'LEARNINGS.md'
-}
-
-if (-not $DryRun) {
-    if (-not (Test-Path $copilotRoot)) {
-        [void](New-Item -ItemType Directory -Path $copilotRoot -Force)
-    }
-
-    Add-Content -Path $logPath -Value "[$timestamp] SESSION_END cwd=$currentDirectory"
-}
-
-Push-Location $pluginRoot
 try {
-    if (-not $git) {
-        Write-Host "[omc] Git not available, skipping auto-learn commit"
+    if (-not $DryRun) {
+        $statePaths = Ensure-OmcState
+        $learnPath  = $statePaths.LearnPath
     } else {
-        $status       = @(& $git.Source status --porcelain --untracked-files=all 2>$null)
-        $changedPaths = @(Get-ChangedPathsFromStatus -StatusLines $status | Select-Object -Unique)
-        $sharedPaths  = @($changedPaths | Where-Object { Test-IsSharedSourcePath $_ })
-        $readmeSyncPaths = @($changedPaths | Where-Object { Test-IsReadmeSyncGuardPath $_ })
-        $readmeChanged = $changedPaths -contains 'README.md'
-        $ignoredPaths = @($changedPaths | Where-Object { -not (Test-IsSharedSourcePath $_) })
+        $learnPath = Join-Path (Get-UserStateRoot) 'LEARNINGS.md'
+    }
 
-        if ($readmeSyncPaths.Count -gt 0 -and -not $readmeChanged) {
-            throw "[omc] README sync required before session end: update README.md for $($readmeSyncPaths -join ', ')"
+    if (-not $DryRun) {
+        if (-not (Test-Path $copilotRoot)) {
+            [void](New-Item -ItemType Directory -Path $copilotRoot -Force)
         }
 
-        if ($sharedPaths.Count -gt 0) {
-            if ($DryRun) {
-                Write-Host "[omc] DryRun: would git add shared paths: $($sharedPaths -join ', ')"
-                Write-Host "[omc] DryRun: would git commit -m `"auto-learn: $timestamp`" --no-verify"
-                Write-Host "[omc] DryRun: would git push origin main"
-                Write-Host "[omc] DryRun: would append auto-commit note to user-local LEARNINGS.md"
-            } else {
-                $gitAddArgs = @('add', '--') + $sharedPaths
-                [void](& $git.Source @gitAddArgs 2>$null)
-                $stagedPaths = @(& $git.Source diff --cached --name-only -- 2>$null)
+        Add-Content -Path $logPath -Value "[$timestamp] SESSION_END cwd=$currentDirectory"
+    }
 
-                if ($stagedPaths.Count -eq 0) {
-                    Write-Host "[omc] Shared source changes detected, but nothing was staged"
-                } else {
-                    $sharedSummary = @($stagedPaths | ForEach-Object { $_ -replace '\\', '/' })
-                    $sharedSummary = @($sharedSummary | Select-Object -Unique)
-
-                    $message = "auto-learn: $timestamp"
-                    [void](& $git.Source commit -m $message --no-verify 2>$null)
-                    if ($LASTEXITCODE -eq 0) {
-                        [void](& $git.Source push origin main 2>$null)
-                        Add-Content -Path $learnPath -Value "[$timestamp] Auto-committed shared changes: $($sharedSummary -join ', ')"
-                        Write-Host "[omc] Self-improved: committed shared source changes"
-                    } else {
-                        Write-Host "[omc] Shared source changes detected, but commit failed"
-                    }
-                }
-            }
-        } elseif ($ignoredPaths.Count -gt 0) {
-            Write-Host "[omc] Ignoring personal/runtime changes for auto-commit: $($ignoredPaths -join ', ')"
+    Push-Location $pluginRoot
+    try {
+        if (-not $git) {
+            Write-Host "[omc] Git not available, skipping shared-source proposal queue"
         } else {
-            Write-Host "[omc] No shared source changes to commit"
+            $status       = @(& $git.Source status --porcelain --untracked-files=all 2>$null)
+            $changedPaths = @(Get-ChangedPathsFromStatus -StatusLines $status | Select-Object -Unique)
+            $sharedPaths  = @($changedPaths | Where-Object { Test-IsSharedSourcePath $_ })
+            $readmeSyncPaths = @($changedPaths | Where-Object { Test-IsReadmeSyncGuardPath $_ })
+            $readmeChanged = $changedPaths -contains 'README.md'
+            $ignoredPaths = @($changedPaths | Where-Object { -not (Test-IsSharedSourcePath $_) })
+
+            if ($readmeSyncPaths.Count -gt 0 -and -not $readmeChanged) {
+                throw "[omc] README sync required before session end: update README.md for $($readmeSyncPaths -join ', ')"
+            }
+
+            if ($sharedPaths.Count -gt 0) {
+                $sharedSummary = @($sharedPaths | Select-Object -Unique)
+
+                if ($DryRun) {
+                    Write-Host "[omc] DryRun: would queue shared-source improvement proposal for: $($sharedSummary -join ', ')"
+                } else {
+                    Add-ImprovementCandidate -DbPath $statePaths.DbPath -GitExe $git.Source -PluginRoot $pluginRoot -SharedPaths $sharedSummary -StatusLines $status
+                    Write-Host "[omc] Queued shared-source improvement proposal in user-local memory for: $($sharedSummary -join ', ')"
+                }
+            } elseif ($ignoredPaths.Count -gt 0) {
+                Write-Host "[omc] Ignoring personal/runtime changes for shared-source proposal queue: $($ignoredPaths -join ', ')"
+            } else {
+                Write-Host "[omc] No shared source changes to queue"
+            }
         }
+
+        if ($DryRun) {
+            Write-Host "[omc] DryRun: would run $consolidateScript"
+        } elseif (Test-Path $consolidateScript) {
+            & $consolidateScript 2>$null
+        }
+    } finally {
+        Pop-Location
+    }
+} catch {
+    # powershell.exe -File does not reliably convert uncaught script errors into a failing process exit code.
+    $message = if ($_.Exception -and -not [string]::IsNullOrWhiteSpace($_.Exception.Message)) {
+        $_.Exception.Message
+    } else {
+        $_.ToString()
     }
 
-    if ($DryRun) {
-        Write-Host "[omc] DryRun: would run $consolidateScript"
-    } elseif (Test-Path $consolidateScript) {
-        & $consolidateScript 2>$null
-    }
-} finally {
-    Pop-Location
+    [Console]::Error.WriteLine($message)
+    exit 1
 }
