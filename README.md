@@ -330,7 +330,7 @@ Atlas Heavy Mode 실행 흐름:
 
 ## 🛡️ 안전 훅
 
-`hooks.json`의 `preToolUse` 훅이 **위험 명령 실행 전 자동으로 개입**합니다. 이제 이 훅은 위험 명령뿐 아니라, `agents/`, `scripts/`, `plugin.json`, `hooks.json`, `local/README.md`, `.gitignore` 같은 플러그인 핵심 파일이 변경됐는데 루트 `README.md`가 함께 갱신되지 않은 상태도 빠르게 감지합니다.
+`hooks.json`의 `preToolUse` 훅이 **위험 명령 실행 전 자동으로 개입**합니다. 이 훅은 위험 명령뿐 아니라, `agents/`, `scripts/`, `plugin.json`, `hooks.json`, `local/README.md`, `.gitignore` 같은 플러그인 핵심 파일이 변경됐는데 루트 `README.md`가 함께 갱신되지 않은 상태도 감지합니다. 위험 명령은 즉시 차단하지만, README 동기화 누락은 비차단 알림으로 처리되며, `sessionEnd`에서 최종 검사합니다.
 
 ### 감지하는 위험 패턴
 
@@ -350,7 +350,7 @@ Atlas Heavy Mode 실행 흐름:
 }
 ```
 
-README 동기화 누락이 감지되면 `preToolUse`는 `permissionDecision: "ask"`로 조기 경고를 내고, `sessionEnd`는 같은 조건을 최종 재검사해 세션 종료를 실패시킵니다. 즉, 핵심 플러그인 파일을 바꿨다면 작업이 끝나기 전에 반드시 `README.md`도 함께 수정해야 합니다.
+README 동기화 누락이 감지되면 `preToolUse`는 stderr에 비차단 경고(reminder)를 출력하고 도구 실행을 계속 허용합니다. 하지만 `sessionEnd`는 같은 조건을 최종 재검사해 세션 종료를 **실패**시킵니다. 즉, 핵심 플러그인 파일을 바꿨다면 작업이 끝나기 전에 반드시 `README.md`도 함께 수정해야 하며, 그렇지 않으면 세션 commit에서 실패합니다.
 
 ### 세션 로깅
 

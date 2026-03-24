@@ -197,8 +197,8 @@ mapfile -t readme_sync_violation_paths < <(get_readme_sync_violation_paths)
 if [[ ${#readme_sync_violation_paths[@]} -gt 0 ]]; then
     changed_summary="$(printf '%s, ' "${readme_sync_violation_paths[@]}")"
     changed_summary="${changed_summary%, }"
-    emit_decision "ask" "README sync required: changed shared plugin files without README.md update (${changed_summary})"
-    exit 0
+    # 완화됨: 블로킹 없이 경고만 출력 (사용자 요청에 의해 비블로킹으로 변경)
+    echo "⚠ README sync reminder (non-blocking): changed shared plugin files without README.md update (${changed_summary})" >&2
 fi
 
 # ---------------------------------------------------------------------------
