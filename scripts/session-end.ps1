@@ -185,6 +185,93 @@ function ConvertTo-SqliteLiteral {
     return $Value -replace "'", "''"
 }
 
+function Get-ContentHash {
+    param(
+        [string]$Content
+    )
+
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Content)
+        $hasher = [System.Security.Cryptography.SHA256]::Create()
+        $hash = $hasher.ComputeHash($bytes)
+        return ([System.BitConverter]::ToString($hash) -replace '-', '').ToLower()
+    } catch {
+        # Fallback: use simple string hash
+        return ($Content.GetHashCode().ToString('X8') + $Content.Length)
+    }
+}
+
+function Ensure-ProposalsFile {
+    param(
+        [string]$Path
+    )
+
+    if (-not (Test-Path $Path)) {
+        [void](New-Item -ItemType File -Path $Path -Force)
+        @() | ConvertTo-Json | Set-Content -Path $Path -Encoding UTF8
+    }
+}
+
+function Add-Proposal {
+    param(
+        [string]$ProposalType,
+        [string]$Description,
+        [string]$FilePath,
+        [string]$Priority = 'normal',
+        [string]$SuggestedChange = ''
+    )
+
+    Ensure-ProposalsFile -Path $PROPOSALS_PATH
+    
+    # Content hash for deduplication
+    $contentHash = Get-ContentHash -Content "$ProposalType`:$FilePath`:$SuggestedChange"
+    
+    # Load existing proposals and check for duplicates
+    try {
+        $proposals = Get-Content -Path $PROPOSALS_PATH -Raw | ConvertFrom-Json
+        if ($null -eq $proposals) { $proposals = @() }
+        elseif (-not ($proposals -is [array])) { $proposals = @($proposals) }
+        
+        $existing = $proposals | Where-Object { $_.contentHash -eq $contentHash } | Select-Object -First 1
+        if ($existing) {
+            Write-Error "[omc] Proposal already queued (dedup: $contentHash, id: $($existing.id))" -ErrorAction Continue
+            return $true
+        }
+    } catch {
+        # If JSON is malformed, we'll overwrite it
+        $proposals = @()
+    }
+    
+    # Generate unique ID
+    $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
+    $proposalId = "$timestamp-$($contentHash.Substring(0, 8))"
+    
+    # Create proposal object
+    $proposal = [PSCustomObject]@{
+        id = $proposalId
+        timestamp = (Get-Date -Format 'o')  # ISO 8601 format
+        type = $ProposalType
+        description = $Description
+        filePath = $FilePath
+        priority = $Priority
+        suggestedChange = $SuggestedChange
+        contentHash = $contentHash
+        status = 'pending'
+    }
+    
+    # Add to array and save
+    $proposals += $proposal
+    try {
+        $proposals | ConvertTo-Json -Depth 10 | Set-Content -Path $PROPOSALS_PATH -Encoding UTF8
+        Write-Error "[omc] Proposal queued ($ProposalType): $Description (id: $proposalId)" -ErrorAction Continue
+        return $true
+    } catch {
+        Write-Error "[omc] Failed to write proposal to $PROPOSALS_PATH : $_" -ErrorAction Continue
+        return $false
+    }
+}
+
+
 function Ensure-ImprovementCandidatesTable {
     param(
         [string]$DbPath
@@ -299,7 +386,14 @@ INSERT INTO improvement_candidates (
     if ($LASTEXITCODE -ne 0) {
         throw "[omc] Failed to record shared-source improvement proposal"
     }
+
+    # Also record in JSON proposals file for transparency (NEW)
+    $proposalDesc = "shared-source changes detected: $($SharedPaths -join ', ') (branch: $branchName, remote: $($remoteContext.Name))"
+    if (-not (Add-Proposal -ProposalType 'shared-source-change' -Description $proposalDesc -FilePath $PluginRoot -Priority 'normal' -SuggestedChange $changedPathsSnapshot)) {
+        Write-Host "[omc] Warning: Failed to record proposal in JSON queue (continuing with SQLite record)" -ForegroundColor Yellow
+    }
 }
+
 
 $copilotRoot        = Get-CopilotRoot
 $pluginRoot         = Get-PluginRoot
@@ -308,6 +402,7 @@ $consolidateScript  = Join-Path $PSScriptRoot 'consolidate.ps1'
 $timestamp          = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $currentDirectory   = (Get-Location).Path
 $git                = Get-Command git -ErrorAction SilentlyContinue
+$PROPOSALS_PATH     = Join-Path (Get-UserStateRoot) 'proposals.json'
 
 try {
     if (-not $DryRun) {

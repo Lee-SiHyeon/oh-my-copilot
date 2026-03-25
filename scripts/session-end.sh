@@ -11,8 +11,10 @@ COPILOT_ROOT="${HOME}/.copilot"
 STATE_ROOT="${HOME}/.copilot/oh-my-copilot"
 DB_PATH="${STATE_ROOT}/omc-memory.db"
 LEARN_PATH="${STATE_ROOT}/LEARNINGS.md"
+PROPOSALS_PATH="${STATE_ROOT}/proposals.json"
 LOG_PATH="${COPILOT_ROOT}/session.log"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
+TIMESTAMP_ISO="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date '+%Y-%m-%d %H:%M:%S')"
 CONSOLIDATE_SCRIPT="${SCRIPT_DIR}/consolidate.sh"
 
 # ---------------------------------------------------------------------------
@@ -73,6 +75,92 @@ sql_escape() {
   printf '%s' "$value"
 }
 
+# ---------------------------------------------------------------------------
+# Helper: JSON proposal queue
+# ---------------------------------------------------------------------------
+hash_content() {
+  local content="$1"
+  if command -v sha256sum &>/dev/null; then
+    printf '%s' "$content" | sha256sum | awk '{print $1}'
+  elif command -v shasum &>/dev/null; then
+    printf '%s' "$content" | shasum -a 256 | awk '{print $1}'
+  else
+    # Fallback: use md5 or simple hash based on string length + first chars
+    printf '%s' "${content:0:8}${#content}"
+  fi
+}
+
+ensure_proposals_file() {
+  if [[ ! -f "$PROPOSALS_PATH" ]]; then
+    echo "[]" > "$PROPOSALS_PATH"
+  fi
+}
+
+add_proposal() {
+  local proposal_type="$1"
+  local description="$2"
+  local file_path="$3"
+  local priority="${4:-normal}"
+  local suggested_change="${5:-}"
+  
+  ensure_proposals_file
+  
+  # Content hash for deduplication (type + path + change summary)
+  local content_hash
+  content_hash="$(hash_content "${proposal_type}:${file_path}:${suggested_change}")"
+  
+  # Check if this proposal already exists
+  if command -v jq &>/dev/null; then
+    local existing
+    existing="$(jq -r ".[] | select(.contentHash == \"${content_hash}\") | .id" "$PROPOSALS_PATH" 2>/dev/null | head -1)"
+    if [[ -n "$existing" ]]; then
+      echo "[omc] Proposal already queued (dedup: $content_hash, id: $existing)" >&2
+      return 0
+    fi
+  fi
+  
+  # Generate unique ID (timestamp + hash prefix)
+  local proposal_id
+  proposal_id="$(date '+%Y%m%d%H%M%S')-${content_hash:0:8}"
+  
+  # Build proposal JSON using printf/string manipulation (portable, no jq dependency)
+  local proposal
+  proposal=$(cat <<EOF
+{
+  "id": "$proposal_id",
+  "timestamp": "$TIMESTAMP_ISO",
+  "type": "$proposal_type",
+  "description": "$description",
+  "filePath": "$file_path",
+  "priority": "$priority",
+  "suggestedChange": "$suggested_change",
+  "contentHash": "$content_hash",
+  "status": "pending"
+}
+EOF
+)
+  
+  # Append to proposals file (simple array append via temp file)
+  if command -v jq &>/dev/null; then
+    # Use jq if available for robust JSON handling
+    jq ". += [$(printf '%s' "$proposal")]" "$PROPOSALS_PATH" > "${PROPOSALS_PATH}.tmp" 2>/dev/null && \
+      mv "${PROPOSALS_PATH}.tmp" "$PROPOSALS_PATH" || return 1
+  else
+    # Fallback: manual array append (assumes well-formed JSON)
+    local tmp_file="${PROPOSALS_PATH}.tmp"
+    {
+      head -c -1 "$PROPOSALS_PATH"  # Remove trailing ]
+      echo ","
+      echo "$proposal"
+      echo "]"
+    } > "$tmp_file" && mv "$tmp_file" "$PROPOSALS_PATH" || return 1
+  fi
+  
+  echo "[omc] Proposal queued ($proposal_type): $description (id: $proposal_id)" >&2
+  return 0
+}
+
+
 ensure_improvement_candidates_table() {
   if ! command -v sqlite3 &>/dev/null; then
     echo "[omc] sqlite3 is required to queue shared-source improvement proposals" >&2
@@ -118,6 +206,7 @@ resolve_git_remote_name() {
 
 queue_improvement_candidate() {
   local remote_name remote_url branch_name head_commit changed_paths_snapshot status_snapshot changed_summary
+  local proposal_description
 
   if ! ensure_improvement_candidates_table; then
     return 1
@@ -134,6 +223,7 @@ queue_improvement_candidate() {
   changed_paths_snapshot="$(printf '%s\n' "${shared_paths[@]}")"
   status_snapshot="$(printf '%s\n' "${status_lines[@]}")"
 
+  # Record in SQLite (existing safe mechanism)
   if ! sqlite3 "$DB_PATH" "
 INSERT INTO improvement_candidates (
     proposal_kind,
@@ -154,12 +244,19 @@ INSERT INTO improvement_candidates (
     '$(sql_escape "$changed_paths_snapshot")',
     '$(sql_escape "$status_snapshot")'
 );"; then
-    echo "[omc] Failed to record shared-source improvement proposal" >&2
+    echo "[omc] Failed to record shared-source improvement proposal in SQLite" >&2
     return 1
   fi
 
+  # Also record in JSON proposals file for transparency (NEW)
   changed_summary="$(printf '%s, ' "${shared_paths[@]}")"
   changed_summary="${changed_summary%, }"
+  proposal_description="shared-source changes detected: $changed_summary (branch: $branch_name, remote: $remote_name)"
+  
+  if ! add_proposal "shared-source-change" "$proposal_description" "$PLUGIN_ROOT" "normal" "$changed_paths_snapshot"; then
+    echo "[omc] Warning: Failed to record proposal in JSON queue (continuing with SQLite record)" >&2
+  fi
+
   echo "[omc] Queued shared-source improvement proposal in user-local memory for: ${changed_summary}"
 }
 
