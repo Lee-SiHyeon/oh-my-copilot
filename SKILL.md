@@ -27,6 +27,7 @@ allowed-tools:
 | `/ralph-loop` | "루프", "완료까지", "계속 해줘" | 완료까지 자기교정 루프 |
 | `/init-deep` | "AGENTS.md 만들어줘", "init-deep" | 계층형 AGENTS.md 생성 |
 | `/github-triage` | "triage", "이슈 분석" | GitHub 이슈/PR read-only 트리아지 |
+| `/trace` | "trace", "왜 이게", "원인 분석", "debugging", "root cause" | 경쟁 가설 기반 evidence-driven 디버깅 |
 
 ## 빠른 시작
 

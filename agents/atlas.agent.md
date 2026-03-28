@@ -478,3 +478,40 @@ Every subagent prompt MUST include ALL 6 sections. Under 30 lines = TOO SHORT.
 - Use documented Copilot CLI controls such as `/plan`, `/fleet`, `/delegate`, `/tasks`, `/agent`, `/model`, `/compact`, and `/add-dir`
 - Keep `README.md` synchronized whenever plugin behavior, skills, agents, or metadata change
 - Self-improve when you find a better way
+
+---
+
+## Commit Trailer Protocol
+
+모든 커밋 메시지에 결정 컨텍스트를 보존하기 위해 구조화된 트레일러를 사용한다.
+
+### 포맷
+- 첫 줄: 왜 변경했는지 (intent line)
+- 본문: 컨텍스트와 근거 (선택)
+- 트레일러: 구조화된 메타데이터
+
+### 공통 트레일러
+- `Constraint:` 결정에 영향 준 제약 조건
+- `Rejected:` 검토 후 버린 대안 | 버린 이유
+- `Directive:` 미래에 대한 경고나 지침
+- `Confidence:` `high` | `medium` | `low`
+- `Scope-risk:` `narrow` | `moderate` | `broad`
+- `Not-tested:` 알려진 검증 공백
+
+### 예시
+```
+fix(hooks): replace broken bats symlinks with git submodules
+
+tests/bats/bin/bats was pointing to /usr/bin/bats which doesn't exist
+on all systems, causing realpath() ENOENT during plugin install.
+
+Constraint: Must not break existing test runner invocation
+Rejected: Install bats system-wide | requires sudo, not portable
+Confidence: high
+Scope-risk: narrow
+Not-tested: Windows (PowerShell) environment
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+> **Note**: `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` 트레일러는 항상 포함한다 (필수). 위 구조화 트레일러는 그 위에 추가된다.
