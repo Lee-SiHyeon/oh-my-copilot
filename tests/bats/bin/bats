@@ -1,1 +1,4 @@
-/usr/bin/bats
+#!/usr/bin/env bash
+# Wrapper: calls system-installed bats
+# This replaces the broken /usr/bin/bats symlink for portability
+exec "$(command -v bats || echo /usr/bin/bats)" "$@"
