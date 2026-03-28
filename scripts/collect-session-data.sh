@@ -42,6 +42,14 @@ MCP_CONFIG="${COPILOT_ROOT}/mcp.json"
 diag "PLUGIN_ROOT=$PLUGIN_ROOT"
 diag "USER_STATE_ROOT=$USER_STATE_ROOT"
 
+# python3 is required for session data collection
+if ! command -v python3 &>/dev/null; then
+  echo "[omc] ERROR: python3 is required by collect-session-data.sh but not found." >&2
+  echo "[omc]   Install on WSL/Ubuntu: sudo apt-get install python3" >&2
+  echo '{"analysisDate":"","sessionCount":0,"topDirectories":[],"completedTodos":[],"agentQTable":[],"dominantDomains":[],"suggestedAgentNames":[],"mcpSignals":[]}'
+  exit 1
+fi
+
 python3 - <<PYEOF
 import json, os, re, subprocess, sys
 from datetime import datetime, timedelta

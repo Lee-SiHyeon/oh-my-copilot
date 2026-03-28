@@ -17,8 +17,14 @@ function Get-UserStateRoot {
     Join-Path (Get-CopilotRoot) 'oh-my-copilot'
 }
 
+function Test-IsWSL {
+    # WSL sets WSL_DISTRO_NAME; fallback to /proc/version for older WSL1
+    [bool]($env:WSL_DISTRO_NAME -or (Test-Path '/proc/version' -ErrorAction SilentlyContinue))
+}
+
 function Test-IsWindows {
-    $env:OS -eq 'Windows_NT'
+    # Exclude WSL: WSL reports OS=Windows_NT but is a Linux environment
+    (-not (Test-IsWSL)) -and ($env:OS -eq 'Windows_NT')
 }
 
 function Resolve-Sqlite3Path {

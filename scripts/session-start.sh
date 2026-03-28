@@ -9,6 +9,14 @@ for dep in sqlite3; do
   fi
 done
 
+# WSL: check pwsh availability (used by PowerShell companion scripts)
+if [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qi 'microsoft' /proc/version 2>/dev/null; then
+  if ! command -v pwsh &>/dev/null; then
+    echo "[omc] WSL detected. Optional: install PowerShell Core (pwsh) for full feature support." >&2
+    echo "[omc]   Install: https://aka.ms/install-powershell" >&2
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # Variables
 # ---------------------------------------------------------------------------
@@ -23,7 +31,7 @@ AGENTS_DIR="${COPILOT_ROOT}/agents"
 
 # Log rotation: keep log under 1MB, rotate to .1 backup
 LOG_FILE="${STATE_ROOT}/session.log"
-if [ -f "$LOG_FILE" ] && [ "$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+if [ -f "$LOG_FILE" ] && [ "$(stat -c%s "$LOG_FILE" 2>/dev/null || stat -f%z "$LOG_FILE" 2>/dev/null || echo 0)" -gt 1048576 ]; then
   mv "$LOG_FILE" "${LOG_FILE}.1"
   echo "[omc] Log rotated: ${LOG_FILE}.1" >&2
 fi
