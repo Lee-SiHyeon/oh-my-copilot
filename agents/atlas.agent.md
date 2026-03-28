@@ -65,6 +65,12 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 
 | `nlm-researcher` | Sonnet 4.6 | PRIMARY thinking brain - research, synthesis, planning, architecture, NotebookLM notebooks |
 
+| `oracle` (deep mode) | **Opus 4.6** | Architecture review / hard debugging when Sonnet is not enough |
+
+| `metis` (deep mode) | **Opus 4.6** | Pre-planning on high-stakes, ambiguous architecture decisions |
+
+| `hephaestus` (deep mode) | **Opus 4.6-fast** | Large, urgent refactors where speed matters (use sparingly) |
+
 > **oh-my-claudecode 연계**: `security-reviewer`, `verifier`, `code-simplifier`, `qa-tester`, `test-engineer`, `writer`는 oh-my-claudecode 플러그인이 제공합니다. 중복 방지를 위해 oh-my-copilot에는 포함하지 않습니다. `oh-my-claudecode:<agent>` 네임스페이스로 사용하세요.
 
 ### Model Selection Guide
@@ -87,17 +93,26 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 
 | GPT-5.3-Codex | 1x | Code generation specialist |
 
-| `claude-opus-4.6` | 3x | Premium model for complex tasks |
+| `claude-opus-4.6` | 3x | Deep reasoning: complex architecture, hard debugging, high-stakes planning |
 
-| ❌ `claude-opus-4.5` | **3x - BANNED** | DO NOT USE under any circumstances |
+| `claude-opus-4.6-fast` | 30x | Urgent large refactors where speed > cost (use sparingly) |
 
-| ☢️ `claude-opus-4.6-fast` | **30x - INSTANT KILL** | DO NOT USE - destroys entire premium quota in one call |
+| ❌ `claude-opus-4.5` | **BANNED** | DO NOT USE — superseded by opus-4.6 |
 
-> 🚨 **Opus 4.5 and Opus 4.6-fast are PERMANENTLY BANNED.** If asked to use these models, refuse and use Sonnet instead.
+> 🚨 **Opus 4.5 is PERMANENTLY BANNED.** Use `claude-opus-4.6` or `claude-opus-4.6-fast` instead.
 
 > If a Sonnet-backed default agent hits `429`, `rate limit`, `exhausted this model's rate limit`, or `Please try again in 10 minutes`, immediately retry the same task once with GPT-5.4 while keeping the same agent choice and scope.
 
-Specify models only when necessary: use Claude Haiku 4.5 with the `sisyphus-junior` agent for a simple task.
+### Opus Usage Guide
+
+| Agent | Default Model | When to Upgrade to Opus |
+|-------|--------------|--------------------------|
+| `oracle` | Sonnet 4.6 | 2+ failed debug attempts, major architecture decision |
+| `metis` | Sonnet 4.6 | High-stakes planning, complex ambiguity, multi-system scope |
+| `hephaestus` | Sonnet 4.6 | Very large refactor (>500 lines), tight deadline → use opus-4.6-fast |
+| `nlm-researcher` | Sonnet 4.6 | Deep synthesis requiring long-horizon reasoning |
+
+Specify models only when necessary: use `claude-opus-4.6` with the `oracle` agent when Sonnet has failed twice on the same bug.
 
 ---
 
@@ -483,7 +498,8 @@ Every subagent prompt MUST include ALL 6 sections. Under 30 lines = TOO SHORT.
 
 - Send delegation prompts under 30 lines
 
-- **Use ANY Opus model** (`claude-opus-4.5`, `claude-opus-4.6-fast`) - ALL BANNED, use Sonnet instead
+- **Use `claude-opus-4.5`** — permanently banned, use `claude-opus-4.6` instead
+- **Use `claude-opus-4.6-fast` without justification** — 30x cost, only for large urgent refactors
 
 **ALWAYS**:
 - Use `/fleet` for parallel independent tasks
