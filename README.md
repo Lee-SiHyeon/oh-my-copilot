@@ -3,7 +3,7 @@
 > oh-my-opencode를 GitHub Copilot CLI에 포팅한 프로덕션급 멀티에이전트 오케스트레이션 플러그인
 
 [![GitHub stars](https://img.shields.io/github/stars/Lee-SiHyeon/oh-my-copilot?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot/stargazers)
-[![Version](https://img.shields.io/badge/version-2.1.0-blue?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue?style=flat-square)](https://github.com/Lee-SiHyeon/oh-my-copilot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -12,7 +12,7 @@
 
 **oh-my-copilot**은 [oh-my-opencode](https://github.com/code-yeongyu/oh-my-openagent)의 멀티에이전트 철학을 GitHub Copilot CLI 환경으로 완전히 이식한 플러그인입니다.
 
-**v2.0.0**부터는 SKILL.md 기반의 레거시 아키텍처에서 **`agents/*.agent.md` 기반의 에이전트 시스템**으로 전면 재설계되었습니다. 현재 사용자 가이드는 **v2.1.0** 기준으로 유지되며, Playwright stealth 로그인 패턴, nlm re-auth 워크플로우, Atlas 운영 원칙 최신화까지 반영합니다.
+**v2.0.0**부터는 SKILL.md 기반의 레거시 아키텍처에서 **`agents/*.agent.md` 기반의 에이전트 시스템**으로 전면 재설계되었습니다. 현재 사용자 가이드는 **v2.2.0** 기준으로 유지되며, Playwright stealth 로그인 패턴, nlm re-auth 워크플로우, Atlas 운영 원칙 최신화까지 반영합니다.
 
 - **마스터 오케스트레이터**: `@atlas` — 모든 작업을 하위 에이전트에 위임합니다
 - **총 14개 에이전트**: 공유 팀 에이전트 13개 + 개인화용 `personal-advisor`
@@ -23,7 +23,7 @@
 
 > ⚠️ `skills/` 디렉터리의 레거시 스킬들은 하위 호환을 위해 유지되지만, 주 시스템은 `agents/`입니다.
 
-## ✨ v2.1.0 핵심 업데이트
+## ✨ v2.2.0 핵심 업데이트
 
 - **Playwright stealth 로그인 패턴 반영**: `skills/playwright/SKILL.md`에 Google OAuth / NotebookLM용 stealth 로그인 패턴이 문서화되어 있습니다. 표준 Playwright만으로 막히는 경우 `navigator.webdriver` 은닉, `window.chrome` 주입, human-like typing 같은 검증된 우회 패턴을 기준으로 안내합니다.
 - **nlm re-auth 워크플로우 명확화**: 평소에는 `nlm login --check`로 인증 상태를 확인하고, 실패 시 `agents/nlm-researcher.agent.md`에 정리된 Playwright stealth re-auth 절차를 우선 따르며, 필요 시 `nlm login --relogin`을 fallback으로 사용한 뒤 다시 `nlm login --check`로 검증합니다.
@@ -416,31 +416,31 @@ cat ~/.copilot/oh-my-copilot/proposals.json | jq '.'
 
 ---
 
-## Agent State Machine
+## 🔄 에이전트 상태 머신
 
-Each agent task follows this lifecycle:
+각 에이전트 태스크는 다음 라이프사이클을 따릅니다:
 
 ```
 pending → in_progress → completed
-                     ↘ failed (on unrecoverable error)
+                     ↘ failed (복구 불가 오류 시)
 ```
 
-**States:**
-- **pending**: Task is queued, waiting for an agent to claim it
-- **in_progress**: An agent has claimed the task and is actively working
-- **completed**: Task finished successfully with verified output
-- **failed**: Task could not be completed; requires human intervention or retry
+**상태 설명:**
+- **pending**: 태스크 대기 중, 에이전트가 클레임하기를 기다림
+- **in_progress**: 에이전트가 태스크를 클레임하고 작업 중
+- **completed**: 태스크가 검증된 결과와 함께 성공적으로 완료됨
+- **failed**: 완료 불가 — 사람의 개입이나 재시도 필요
 
-**Transition rules:**
-- Only one agent should claim a task (race conditions mitigated via hashing)
-- Tasks should not transition backward (no completed → in_progress)
-- The `atlas` orchestrator monitors transitions and reassigns stalled tasks
+**전환 규칙:**
+- 하나의 태스크는 단일 에이전트만 클레임 (해시 기반 중복 방지)
+- 상태는 역방향 전환 불가 (`completed → in_progress` 금지)
+- `atlas` 오케스트레이터가 전환을 모니터링하고 멈춘 태스크를 재배정
 
-**Session lifecycle:**
-1. `sessionStart` hook initializes memory and loads context
-2. Atlas decomposes the user request into tasks
-3. Specialist agents execute tasks in dependency order
-4. `sessionEnd` hook consolidates learnings and queues improvements
+**세션 라이프사이클:**
+1. `sessionStart` 훅이 메모리를 초기화하고 컨텍스트를 로드
+2. Atlas가 사용자 요청을 태스크로 분해
+3. 전문 에이전트들이 의존성 순서에 따라 태스크를 실행
+4. `sessionEnd` 훅이 학습 내용을 통합하고 개선 제안을 큐에 추가
 
 ---
 
