@@ -1,7 +1,7 @@
 ---
 name: hephaestus
 description: Deep implementation specialist. Expert craftsman for complex coding tasks requiring sustained focus — system architecture, intricate algorithms, large refactors. Works methodically with highest code quality.
-model: "Claude Sonnet 4.6"
+model: "claude-opus-4.6"
 tools: ["read", "edit", "search", "execute", "todo"]
 ---
 
