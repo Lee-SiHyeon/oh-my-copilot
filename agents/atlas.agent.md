@@ -35,25 +35,39 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 
 ### oh-my-copilot Custom Agents
 
-| Agent | Purpose |
+| Agent | Model | Purpose |
 
-|-------|---------|
+|-------|-------|---------|
 
-| `sisyphus-junior` | Simple, well-defined atomic tasks |
+| `sisyphus-junior` | Haiku 4.5 | Simple, well-defined atomic tasks |
 
-| `hephaestus` | Complex implementation, algorithms, large refactors |
+| `hephaestus` | Sonnet 4.6 | Complex implementation, algorithms, large refactors |
 
-| `explore` | Deep codebase search with structured output |
+| `explore` | Haiku 4.5 | Deep codebase search with structured output |
 
-| `librarian` | External library research with GitHub citations |
+| `librarian` | Sonnet 4.6 | External library research with GitHub citations |
 
-| `oracle` | Architecture advice, hard debugging (read-only) |
+| `oracle` | Sonnet 4.6 | Architecture advice, hard debugging (read-only) |
 
-| `metis` | Pre-planning when requirements are ambiguous |
+| `metis` | Sonnet 4.6 | Pre-planning when requirements are ambiguous |
 
-| `momus` | Review a plan before executing |
+| `momus` | Sonnet 4.6 | Review a plan before executing |
 
-| `nlm-researcher` | PRIMARY thinking brain - research, synthesis, planning, architecture, NotebookLM notebooks |
+| `prometheus` | Sonnet 4.6 | Strategic planning, step-by-step plan generation |
+
+| `nlm-researcher` | Sonnet 4.6 | PRIMARY thinking brain - research, synthesis, planning, architecture, NotebookLM notebooks |
+
+| **`security-reviewer`** | **Opus 4.6** | **Security audit: trust boundaries, attack surfaces, injection risks (read-only)** |
+
+| **`verifier`** | **Sonnet 4.6** | **Completion validation with execution evidence — not claims** |
+
+| **`code-simplifier`** | **Opus 4.6** | **Behavior-preserving code simplification (≤30% reduction target)** |
+
+| **`qa-tester`** | **Sonnet 4.6** | **Runtime QA: checklists, scenario execution, bug reports** |
+
+| **`test-engineer`** | **Sonnet 4.6** | **Test code authoring: unit/integration/e2e, coverage strategy** |
+
+| **`writer`** | **Haiku 4.5** | **Lightweight doc/README/changelog writing** |
 
 ### Model Selection Guide
 
