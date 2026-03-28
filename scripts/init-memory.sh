@@ -11,6 +11,13 @@
 
 set -euo pipefail
 
+# Dependency check
+for dep in sqlite3; do
+  if ! command -v "$dep" &>/dev/null; then
+    echo "[omc] WARNING: '$dep' is not installed. Some features may be unavailable." >&2
+  fi
+done
+
 # ── Resolve paths ────────────────────────────────────────────────────────────
 
 # Directory that contains THIS script, resolved to an absolute path.
@@ -60,6 +67,9 @@ CREATE TABLE IF NOT EXISTS semantic_memory (
     creation_time   DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_accessed   DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_priority
+  ON semantic_memory (base_importance, access_count, last_accessed);
 
 CREATE TABLE IF NOT EXISTS meta_policy_rules (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,

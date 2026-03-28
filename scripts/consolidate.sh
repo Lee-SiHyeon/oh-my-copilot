@@ -22,10 +22,11 @@ STATE_ROOT="$HOME/.copilot/oh-my-copilot"
 DB_PATH="${1:-$STATE_ROOT/omc-memory.db}"
 LEARN_PATH="${2:-$STATE_ROOT/LEARNINGS.md}"
 
-# ── Dependency check (silent) ─────────────────────────────────────────────────
+# ── Dependency check ─────────────────────────────────────────────────────────
 
 if ! command -v sqlite3 &>/dev/null; then
-    exit 0
+  echo "[omc] ERROR: sqlite3 is required but not installed. Install sqlite3 to enable memory consolidation." >&2
+  exit 1
 fi
 
 # ── DB existence check ────────────────────────────────────────────────────────
@@ -46,6 +47,10 @@ if [[ ! -f "$DB_PATH" ]]; then
         exit 0
     fi
 fi
+
+# ── Helper: escape SQL string values (single and double quotes) ───────────────
+
+escape_sql() { local v="$1"; v="${v//\'/\'\'}"; v="${v//\"/\"\"}"; printf '%s' "$v"; }
 
 # ── Helper: run a SQL statement, ignore errors ────────────────────────────────
 
@@ -70,6 +75,9 @@ run_sql "UPDATE semantic_memory
 # Priority score formula:
 #   (base_importance × access_count) / (days_since_last_access + 1)
 
+# Priority threshold: entries with score < 0.01 are candidates for eviction.
+# Score = (base_importance * access_count) / (days_since_last_access + 1)
+# A score of 0.01 means: an entry accessed once, with base importance 1.0, not accessed in ~99 days.
 echo "[omc] Step 2/4 — Running priority-decay eviction …"
 run_sql "DELETE FROM semantic_memory
          WHERE (base_importance * access_count)
@@ -90,10 +98,11 @@ if [[ -f "$LEARN_PATH" ]]; then
     skipped=0
 
     for line in "${candidates[@]}"; do
+        line="${line:-}"
         # ── Low-signal filter ─────────────────────────────────────────────
         # Skip lines that are too short to carry useful information, or that
         # contain boilerplate "no changes" messages.
-        if (( ${#line} < 30 )); then
+        if (( ${#line:-0} < 30 )); then
             (( skipped++ )) || true
             continue
         fi
@@ -110,11 +119,11 @@ if [[ -f "$LEARN_PATH" ]]; then
         if echo "$line" | grep -qi "tool";    then category="tool";    fi
 
         # ── Token weight (capped at 100) ──────────────────────────────────
-        token_weight=$(( ${#line} / 10 ))
+        token_weight=$(( ${#line:-0} / 10 ))
         (( token_weight > 100 )) && token_weight=100
 
-        # ── SQL injection prevention: escape single quotes ─────────────────
-        safe_line="${line//\'/\'\'}"
+        # ── SQL injection prevention: escape single and double quotes ────────
+        safe_line="$(escape_sql "$line")"
 
         run_sql "INSERT OR IGNORE INTO semantic_memory
                      (fact_content, category, token_weight)

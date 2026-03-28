@@ -2,7 +2,7 @@ param(
     [switch]$DryRun
 )
 
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Continue'
 
 function Get-HomeDirectory {
     if (-not [string]::IsNullOrWhiteSpace($HOME)) { return $HOME }
@@ -406,18 +406,26 @@ $PROPOSALS_PATH     = Join-Path (Get-UserStateRoot) 'proposals.json'
 
 try {
     if (-not $DryRun) {
-        $statePaths = Ensure-OmcState
-        $learnPath  = $statePaths.LearnPath
+        try {
+            $statePaths = Ensure-OmcState
+            $learnPath  = $statePaths.LearnPath
+        } catch {
+            [Console]::Error.WriteLine("[omc] ERROR: Failed to initialize state directories: $_")
+            exit 1
+        }
     } else {
         $learnPath = Join-Path (Get-UserStateRoot) 'LEARNINGS.md'
     }
 
     if (-not $DryRun) {
-        if (-not (Test-Path $copilotRoot)) {
-            [void](New-Item -ItemType Directory -Path $copilotRoot -Force)
+        try {
+            if (-not (Test-Path $copilotRoot)) {
+                [void](New-Item -ItemType Directory -Path $copilotRoot -Force)
+            }
+            Add-Content -Path $logPath -Value "[$timestamp] SESSION_END cwd=$currentDirectory"
+        } catch {
+            [Console]::Error.WriteLine("[omc] ERROR: Failed to write session log: $_")
         }
-
-        Add-Content -Path $logPath -Value "[$timestamp] SESSION_END cwd=$currentDirectory"
     }
 
     Push-Location $pluginRoot

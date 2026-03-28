@@ -6,6 +6,8 @@ description: Full orchestration mode combining planning, parallel execution, and
 model: "Claude Sonnet 4.6"
 
 tools:
+  # tools: ["*"] means this agent has access to ALL available tools.
+  # This is intentional for ultrawork which orchestrates across the full tool surface.
   - "*"
 ---
 

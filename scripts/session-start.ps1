@@ -25,6 +25,9 @@ function Test-IsWindows {
     $env:OS -eq 'Windows_NT'
 }
 
+# sqlite3.exe path resolution: checks multiple locations because SQLite is not in PATH by default on Windows.
+# Priority order: (1) System PATH, (2) common install locations, (3) bundled fallback.
+# If you install sqlite3 to a custom location, add it to your PATH instead of modifying this script.
 function Resolve-Sqlite3Path {
     $command = Get-Command sqlite3 -ErrorAction SilentlyContinue
     if ($command -and $command.Source) { return $command.Source }

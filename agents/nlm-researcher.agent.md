@@ -28,7 +28,8 @@ command -v nlm >/dev/null || export PATH="$HOME/.local/bin:$PATH"
 
 ## 🔄 Re-authentication (When Cookies Expire)
 
-Cookies are stored at `~/.notebooklm-mcp-cli/profiles/default/` (27 cookies for `shyeon0528@gmail.com`).
+<!-- Set NLM_ACCOUNT_EMAIL environment variable to your NotebookLM account email -->
+Cookies are stored at `~/.notebooklm-mcp-cli/profiles/default/` (27 cookies for `${NLM_ACCOUNT_EMAIL}`).
 Google's automation detection blocks standard Playwright — use the stealth method below.
 
 ### Step 0: Check current auth status first
@@ -43,6 +44,10 @@ nlm login --check
 
 Bypasses Google automation detection via `navigator.webdriver=false`, `window.chrome` injection, and human-like typing.
 
+**Prerequisite**: Verify Python 3 and pip are installed before running playwright install:
+- Check: `python3 --version && pip3 --version`
+- If missing, install Python 3 first
+
 ```bash
 # Ensure Playwright Chromium is installed
 python3 -m playwright install chromium
@@ -51,7 +56,7 @@ python3 -m playwright install chromium
 python3 /home/worker/nlm_playwright_login.py
 ```
 
-> This is the **only confirmed working method** for `shyeon0528@gmail.com`.
+> This is the **only confirmed working method** for `${NLM_ACCOUNT_EMAIL}`.
 > Standard Playwright (without stealth patches) is blocked by Google.
 
 ### Step 2 (Fallback): nlm CLI Direct Re-login

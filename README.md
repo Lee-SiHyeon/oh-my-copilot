@@ -416,6 +416,34 @@ cat ~/.copilot/oh-my-copilot/proposals.json | jq '.'
 
 ---
 
+## Agent State Machine
+
+Each agent task follows this lifecycle:
+
+```
+pending → in_progress → completed
+                     ↘ failed (on unrecoverable error)
+```
+
+**States:**
+- **pending**: Task is queued, waiting for an agent to claim it
+- **in_progress**: An agent has claimed the task and is actively working
+- **completed**: Task finished successfully with verified output
+- **failed**: Task could not be completed; requires human intervention or retry
+
+**Transition rules:**
+- Only one agent should claim a task (race conditions mitigated via hashing)
+- Tasks should not transition backward (no completed → in_progress)
+- The `atlas` orchestrator monitors transitions and reassigns stalled tasks
+
+**Session lifecycle:**
+1. `sessionStart` hook initializes memory and loads context
+2. Atlas decomposes the user request into tasks
+3. Specialist agents execute tasks in dependency order
+4. `sessionEnd` hook consolidates learnings and queues improvements
+
+---
+
 ## 🔧 구조
 
 ```

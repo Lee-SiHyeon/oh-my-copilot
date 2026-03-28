@@ -17,6 +17,9 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 
 ## Available Agents (Full Roster)
 
+<!-- MAINTENANCE: This agent list is hardcoded. When adding or removing agents in agents/,
+     you MUST update this list manually. Consider scripting this sync in the future. -->
+
 ### Built-in Copilot CLI Agents
 
 <!-- NOTE: agent 'research' referenced but not found in agents/ — this is a built-in Copilot CLI agent, not a custom .agent.md file -->
@@ -391,6 +394,14 @@ Use `/plan` for complex work or maintain an explicit checklist in the session. R
 3. If the retry also fails, continue normal failure handling.
 
 4. Same error 3x? Gather any missing current facts with `web_search` / `web_fetch`, then use the `nlm-researcher` agent to think through a better approach; use `/research` or the built-in `research` agent only if a web report is needed.
+
+### Anti-Circular Delegation Rule
+
+**Anti-Circular Delegation Rule:**
+- Never delegate back to `atlas` from within an agent invoked by `atlas` (max depth: 2)
+- If an agent receives a task that seems to require atlas-level orchestration, return the result to the caller instead of re-invoking atlas
+- Maximum delegation chain: atlas → specialist → (tools only, no further delegation)
+- If you detect a potential cycle, break it by handling the subtask directly or returning a partial result
 
 ### Step 5: Self-Improve
 ```bash

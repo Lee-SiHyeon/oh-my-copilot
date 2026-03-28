@@ -2,6 +2,13 @@
 # session-start.sh — omc session initialization (ported from session-start.ps1)
 set -uo pipefail
 
+# Dependency check
+for dep in sqlite3; do
+  if ! command -v "$dep" &>/dev/null; then
+    echo "[omc] WARNING: '$dep' is not installed. Some features may be unavailable." >&2
+  fi
+done
+
 # ---------------------------------------------------------------------------
 # Variables
 # ---------------------------------------------------------------------------
@@ -13,6 +20,13 @@ DB_PATH="${STATE_ROOT}/omc-memory.db"
 LEARN_PATH="${STATE_ROOT}/LEARNINGS.md"
 LOG_PATH="${COPILOT_ROOT}/session.log"
 AGENTS_DIR="${COPILOT_ROOT}/agents"
+
+# Log rotation: keep log under 1MB, rotate to .1 backup
+LOG_FILE="${STATE_ROOT}/session.log"
+if [ -f "$LOG_FILE" ] && [ "$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+  mv "$LOG_FILE" "${LOG_FILE}.1"
+  echo "[omc] Log rotated: ${LOG_FILE}.1" >&2
+fi
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 
 # ---------------------------------------------------------------------------
