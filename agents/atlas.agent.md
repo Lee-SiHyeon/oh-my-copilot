@@ -19,6 +19,11 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 
 ### Built-in Copilot CLI Agents
 
+<!-- NOTE: agent 'research' referenced but not found in agents/ — this is a built-in Copilot CLI agent, not a custom .agent.md file -->
+<!-- NOTE: agent 'task' referenced but not found in agents/ — this is a built-in Copilot CLI agent, not a custom .agent.md file -->
+<!-- NOTE: agent 'general-purpose' referenced but not found in agents/ — this is a built-in Copilot CLI agent, not a custom .agent.md file -->
+<!-- NOTE: agent 'code-review' referenced but not found in agents/ — this is a built-in Copilot CLI agent, not a custom .agent.md file -->
+
 | Agent | Model | Purpose |
 
 |-------|-------|---------|
@@ -57,17 +62,7 @@ You are Atlas - the Master Orchestrator. You coordinate agents, delegate work, v
 
 | `nlm-researcher` | Sonnet 4.6 | PRIMARY thinking brain - research, synthesis, planning, architecture, NotebookLM notebooks |
 
-| **`security-reviewer`** | **Opus 4.6** | **Security audit: trust boundaries, attack surfaces, injection risks (read-only)** |
-
-| **`verifier`** | **Sonnet 4.6** | **Completion validation with execution evidence — not claims** |
-
-| **`code-simplifier`** | **Opus 4.6** | **Behavior-preserving code simplification (≤30% reduction target)** |
-
-| **`qa-tester`** | **Sonnet 4.6** | **Runtime QA: checklists, scenario execution, bug reports** |
-
-| **`test-engineer`** | **Sonnet 4.6** | **Test code authoring: unit/integration/e2e, coverage strategy** |
-
-| **`writer`** | **Haiku 4.5** | **Lightweight doc/README/changelog writing** |
+> **oh-my-claudecode 연계**: `security-reviewer`, `verifier`, `code-simplifier`, `qa-tester`, `test-engineer`, `writer`는 oh-my-claudecode 플러그인이 제공합니다. 중복 방지를 위해 oh-my-copilot에는 포함하지 않습니다. `oh-my-claudecode:<agent>` 네임스페이스로 사용하세요.
 
 ### Model Selection Guide
 

@@ -197,13 +197,13 @@ copilot --agent oh-my-copilot:metis               ← 사전 리스크 파악
 copilot --agent oh-my-copilot:momus               ← 계획서 검토 (OKAY / REJECT)
 copilot --agent oh-my-copilot:nlm-researcher      ← 심층 리서치·합성·계획 (brain-work)
 copilot --agent oh-my-copilot:personal-advisor    ← 개인 에이전트 추천/초안
-# oh-my-claudecode 패턴으로 추가된 전문 에이전트 (v2.2)
-copilot --agent oh-my-copilot:security-reviewer   ← 보안 감사 (trust boundary, OWASP, read-only)
-copilot --agent oh-my-copilot:verifier            ← 완료 검증 (실행 증거 기반)
-copilot --agent oh-my-copilot:code-simplifier     ← 동작 보존 코드 단순화
-copilot --agent oh-my-copilot:qa-tester           ← 런타임 QA / 버그 리포트
-copilot --agent oh-my-copilot:test-engineer       ← 테스트 코드 작성 전담
-copilot --agent oh-my-copilot:writer              ← README/changelog 경량 문서 작성
+# oh-my-claudecode가 제공하는 전문 에이전트 (oh-my-copilot과 중복 방지로 여기선 제외)
+copilot --agent oh-my-claudecode:security-reviewer ← 보안 감사 (trust boundary, OWASP, read-only)
+copilot --agent oh-my-claudecode:verifier          ← 완료 검증 (실행 증거 기반)
+copilot --agent oh-my-claudecode:code-simplifier   ← 동작 보존 코드 단순화
+copilot --agent oh-my-claudecode:qa-tester         ← 런타임 QA / 버그 리포트
+copilot --agent oh-my-claudecode:test-engineer     ← 테스트 코드 작성 전담
+copilot --agent oh-my-claudecode:writer            ← README/changelog 경량 문서 작성
 ```
 
 ---
@@ -438,13 +438,9 @@ oh-my-copilot/
 │   ├── nlm-researcher.agent.md      ← NotebookLM 리서치 에이전트 (PRIMARY 사고 브레인)
 │   ├── multimodal-looker.agent.md   ← 이미지·문서 분석
 │   ├── ultrawork.agent.md           ← 풀 오케스트레이션 모드
-│   ├── personal-advisor.agent.md    ← 개인 에이전트 추천/초안 어드바이저
-│   ├── security-reviewer.agent.md   ← 보안 감사 전문가 (Opus 4.6, read-only)   ✨ v2.2
-│   ├── verifier.agent.md            ← 완료 검증 전문가 (실행 증거 기반)         ✨ v2.2
-│   ├── code-simplifier.agent.md     ← 동작 보존 코드 단순화 (Opus 4.6)          ✨ v2.2
-│   ├── qa-tester.agent.md           ← 런타임 QA / 버그 리포트                   ✨ v2.2
-│   ├── test-engineer.agent.md       ← 테스트 코드 작성 전담                     ✨ v2.2
-│   └── writer.agent.md              ← README/changelog 경량 문서 작성 (Haiku)   ✨ v2.2
+│   └── personal-advisor.agent.md    ← 개인 에이전트 추천/초안 어드바이저
+│   # 아래 에이전트는 oh-my-claudecode 플러그인 제공 (중복 방지로 미포함)
+│   # security-reviewer, verifier, code-simplifier, qa-tester, test-engineer, writer
 ├── scripts/
 │   └── collect-session-data.ps1     ← 세션 기록·todo·Q-table·MCP 신호 수집
 ├── local/                           ← gitignored 개인 override 영역
