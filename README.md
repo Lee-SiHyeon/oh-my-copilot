@@ -39,7 +39,7 @@
 copilot plugin install Lee-SiHyeon/oh-my-copilot
 ```
 
-설치 후 Copilot CLI를 **재시작**하면 14개 에이전트가 즉시 사용 가능합니다. 필요하면 `personal-advisor`로 사용자 전용 개인 에이전트도 바로 설계할 수 있습니다.
+설치 후 Copilot CLI를 **재시작**하고 `/experimental on`을 실행하면 14개 에이전트가 즉시 사용 가능합니다. 필요하면 `personal-advisor`로 사용자 전용 개인 에이전트도 바로 설계할 수 있습니다.
 
 ### 공유 플러그인 코드 vs 사용자별 런타임 상태
 
@@ -95,6 +95,38 @@ REST API 인증 시스템 전체 구현해줘   ← Atlas가 하위 에이전트
 ```bash
 copilot --agent oh-my-copilot:personal-advisor
 ```
+
+---
+
+## ⚡ Experimental Features (Required)
+
+oh-my-copilot leverages Copilot CLI's experimental features for maximum capability.
+**Run this once after installation:**
+
+```
+/experimental on
+```
+
+Or launch with: `copilot --experimental`
+
+### What gets unlocked:
+
+| Feature | Benefit for oh-my-copilot |
+|---------|--------------------------|
+| `MULTI_TURN_AGENTS` | Atlas keeps context across delegation rounds |
+| `SUBAGENT_COMPACTION` | Long-running tasks don't lose context mid-flight |
+| `SESSION_STORE` | Cross-session memory & learning persistence |
+| `ASK_USER_ELICITATION` | Structured interview forms (Prometheus, deep-interview) |
+| `STATUS_LINE` | Real-time progress display in terminal |
+| `BACKGROUND_SESSIONS` | Persistent ralph-loop and ultrawork workflows that survive session restarts |
+| `EXTENSIONS` | SDK scaffold available in `extensions/` — opt-in preview |
+
+> 💡 **Individual features**: Set specific flags via environment variable:
+> ```bash
+> export COPILOT_CLI_ENABLED_FEATURE_FLAGS="MULTI_TURN_AGENTS,SESSION_STORE"
+> ```
+
+> ⚠️ Without experimental mode, core capabilities like multi-turn delegation, session memory, and structured forms will be unavailable. Atlas and other agents will operate in a limited single-turn mode.
 
 ---
 
