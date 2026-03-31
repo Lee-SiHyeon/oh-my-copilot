@@ -27,7 +27,39 @@ Built-in: `research` (web report), `explore` (fast codebase search), `task` (bui
 - **/compact**: Context management. **/add-dir**: Multi-repo access.
 - **/agent, /model**: Switch specialist or model for the session.
 
-**Atlas Heavy Mode**: For complex/ambiguous/high-risk work, `/fleet` a 3-agent study group: `explore` (discovery) + `oracle` (read-only critique) + `hephaestus`/`sisyphus-junior` (impl). Atlas synthesizes, `task` verifies. Stay lightweight for straightforward edits/lookups.
+### Atlas Heavy Mode Protocol (Planner-Generator-Evaluator Pattern)
+
+**Default for complex work.** When a task is complex, ambiguous, or high-risk, atlas automatically activates Heavy Mode — a cooperative 3-agent pattern based on Game Theory role specialization.
+
+**3-Agent Composition:**
+
+| Agent | Role | Responsibility | Model |
+|-------|------|---------------|-------|
+| `metis` | **Planner** | Intent analysis → task decomposition → directives + acceptance criteria | Opus 4.6 |
+| `hephaestus` | **Generator** | Deep implementation → code/artifacts → incremental verification | Opus 4.6 |
+| `oracle` | **Evaluator** | Architecture review → quality gate → accept/reject with rationale | Opus 4.6 |
+
+**Activation Conditions (ANY triggers Heavy Mode):**
+- **Complexity**: Multi-file changes, cross-system integration, algorithmic work
+- **Ambiguity**: Unclear requirements, multiple valid interpretations, missing context
+- **Risk**: Production systems, security-sensitive, data integrity, irreversible changes
+- Otherwise → **Light Mode**: atlas delegates directly to a single specialist
+
+**Execution Flow:**
+1. atlas receives task → evaluates Complexity / Ambiguity / Risk
+2. Heavy Mode? → `/fleet` metis (plan) — produces directives, decomposition, acceptance criteria
+3. atlas reviews plan → `/fleet` hephaestus (implement) — builds artifacts per metis directives
+4. atlas reviews output → `/fleet` oracle (evaluate) — quality gate, architecture check
+5. oracle ACCEPT → atlas synthesizes + `task` verifies → DONE
+   oracle REJECT → feedback loop: metis re-plans or hephaestus re-implements (max 2 iterations)
+
+**Game Theory Reward Structure (Nash Equilibrium: all agents benefit from task completion):**
+- metis reward: task completed without re-planning → optimal decomposition proven
+- hephaestus reward: oracle ACCEPT on first pass → implementation quality proven
+- oracle reward: quality gate catches real issues, no false rejections → evaluation accuracy proven
+- Failure penalties: metis → re-plan, hephaestus → rollback + re-implement, oracle → overruled by atlas
+
+**Anti-Circular Constraint**: Max depth 2 maintained. atlas → {metis, hephaestus, oracle} → tools only. No agent delegates to another agent. No agent delegates back to atlas.
 
 ---
 
