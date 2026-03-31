@@ -27,6 +27,12 @@ allowed-tools:
 /cancel-ralph                   # 실행 중인 루프 취소
 ```
 
+## INVARIANTS
+⚠️ NEVER declare done without <promise>DONE</promise>
+⚠️ NEVER give up after first failure — try different approaches
+⚠️ ALWAYS maintain TodoWrite tracking
+⚠️ ALWAYS verify before marking complete
+
 ---
 
 ## ULTRAWORK LOOP vs RALPH LOOP
@@ -88,6 +94,23 @@ ITERATION N:
 - 다른 접근법 시도
 - TodoWrite 업데이트 후 계속
 
+### 반복 실패 시 사용자 개입 (3회 이상 동일 실패)
+
+같은 에러가 3회 이상 반복되면 자동으로 사용자에게 구조화된 선택지를 제시:
+
+```
+ask_user(
+  question="[에러 내용] — 같은 실패가 3회 반복됐습니다. 어떻게 진행할까요?",
+  choices=["계속 — 다른 접근법으로 재시도 (Recommended)", "전략 변경 — 새로운 전략을 제안해주세요", "중단 — 현재까지 완료된 것만 유지", "건너뛰기 — 이 항목 스킵하고 다음으로"]
+)
+```
+
+**선택별 동작:**
+- **계속**: 이전과 다른 접근법을 자동 선택하여 재시도
+- **전략 변경**: 사용자에게 새 전략 입력 요청 → 해당 전략으로 전환
+- **중단**: `<promise>DONE</promise>` 출력, 미완료 항목 목록 표시
+- **건너뛰기**: 해당 TodoWrite 항목을 `skipped`로 표시, 다음 항목 진행
+
 ---
 
 ## ULTRAWORK LOOP 검증 프로세스
@@ -106,6 +129,96 @@ ITERATION N:
 ```
 
 ---
+
+## Context Management for Long Loops
+
+### Periodic Summary (every 10 iterations)
+
+Every 10 iterations (10, 20, 30...), write a Loop Summary:
+
+```
+[LOOP-SUMMARY iteration={N} of={max}]
+Task: {original task description}
+Progress: {items done}/{total items}
+Completed: {brief list of done items}
+Failed & retried: {items that needed retry}
+Current focus: {what iteration N+1 will work on}
+Remaining: {pending items count}
+[/LOOP-SUMMARY]
+```
+
+### Auto-Compact Trigger
+
+Context management thresholds:
+- At 50% context: Write a Loop Summary (even if not at iteration 10)
+- At 70% context: Write Loop Summary + consider `/compact`
+- At 80% context: MUST run `/compact` before continuing
+- After `/compact`: Re-read the latest Loop Summary, re-state remaining todos, continue
+
+Note: Context percentage is estimated by the agent based on the volume of file reads, command outputs, and conversation length.
+
+### Strategy for 100-iteration scenarios
+
+For high-iteration tasks (50+ expected iterations):
+- Use `--strategy=continue` (default)
+- Write Loop Summary every 10 iterations
+- After `/compact`, the Loop Summary is the recovery checkpoint
+- Keep TodoWrite items updated — they are the source of truth
+- If the same item fails 5 times, mark it as blocked and move on
+
+---
+
+## Multi-Turn Loop Optimization
+
+[MULTI-TURN-RALPH-LOOP]
+
+When `MULTI_TURN_AGENTS` is available (detected by `write_agent` tool presence), the ralph loop can keep verification agents alive across iterations instead of spawning new ones each cycle.
+
+### Legacy Loop Pattern (One-Shot)
+
+```
+iteration 1: task(verifier) → read_agent → done → discard
+iteration 2: task(verifier) → read_agent → done → discard  ← full context rebuild
+iteration 3: task(verifier) → read_agent → done → discard  ← full context rebuild
+```
+
+### Multi-Turn Loop Pattern (Optimized)
+
+```
+loop_start → task(verifier, mode="background")
+  → [write_agent(fix_1) → read_agent]*
+  → [write_agent(fix_2) → read_agent]*
+  → ...
+  → [write_agent(fix_N) → read_agent]*
+→ loop_end
+```
+
+### Benefits
+
+- **Faster iterations**: No context rebuild between loop cycles — the verifier already knows the codebase
+- **Accumulated understanding**: The verifier learns from prior fixes, catches regression patterns
+- **Lower cost**: Single agent dispatch + N incremental turns vs N full dispatches
+- **Better error correlation**: Verifier can correlate new failures with prior fixes ("this broke because of the change in iteration 3")
+
+### Implementation Rules
+
+1. **Agent reuse scope**: Reuse the same verifier agent within a single ralph-loop session. Spawn fresh for new loop sessions.
+2. **Staleness check**: If the verifier has been alive for 50+ turns, consider spawning fresh (context may be degraded)
+3. **Failure fallback**: If `write_agent` returns an error or the agent is no longer `idle`, fall back to spawning a new verifier
+4. **Loop Summary integration**: The `[LOOP-SUMMARY]` checkpoint should note multi-turn agent status:
+
+```
+[LOOP-SUMMARY iteration={N} of={max}]
+...existing fields...
+Multi-turn verifier: {agent_id} (turn {T}, status: {idle|completed})
+[/LOOP-SUMMARY]
+```
+
+[/MULTI-TURN-RALPH-LOOP]
+
+---
+
+<!-- LOW-PRIORITY: Examples below may be removed during compaction -->
 
 ## 자주 쓰이는 패턴
 

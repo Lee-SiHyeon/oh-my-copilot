@@ -80,6 +80,25 @@ find . -name "*.test.ts" -not -path "*/node_modules/*" | head -3
 
 ## Phase 2: Intent-Specific Interview
 
+### 구조화된 질문 패턴 (ASK_USER_ELICITATION)
+
+인터뷰 시 자유 텍스트 대신 `ask_user`의 `choices` 파라미터를 활용하여 구조화된 입력을 받는다.
+
+**기본 사용법:**
+```
+ask_user(
+  question="질문 텍스트",
+  choices=["선택지 A", "선택지 B (Recommended)", "선택지 C"],
+  allow_freeform=true
+)
+```
+
+**원칙:**
+- 답변 공간이 유한할 때 → `choices` 사용 (필수)
+- 답변 공간이 무한할 때 → 자유 텍스트 (기본)
+- 권장 선택지에 `(Recommended)` 접미사 표시
+- `allow_freeform=true` 유지 → 선택지 외 답변도 허용
+
 ### REFACTORING 인터뷰
 
 **포커스: 안전성과 동작 보존**
@@ -98,6 +117,14 @@ find . -name "*.test.*" -not -path "*/node_modules/*" \
 2. 검증 방법은? (`npm test`, `pytest` 등)
 3. 롤백 전략은?
 4. 변경이 관련 코드로 전파되어야 하나, 격리된 상태로?
+
+구조화된 질문:
+```
+ask_user(
+  question="리팩토링 범위를 선택하세요:",
+  choices=["격리 — 이 파일/모듈만 변경", "전파 — 관련 코드도 함께 업데이트 (Recommended)", "단계적 — 이번에 핵심만, 나머지는 후속 태스크"]
+)
+```
 
 ---
 
@@ -120,6 +147,14 @@ done | sort -rn | head -5
 3. MVP vs 전체 비전?
 4. 선호하는 라이브러리/접근법?
 
+구조화된 질문:
+```
+ask_user(
+  question="새 기능의 범위를 선택하세요:",
+  choices=["MVP — 핵심 기능만 먼저 (Recommended)", "Full — 에러 핸들링 + 테스트 포함", "Production — 문서 + CI + 모니터링 포함"]
+)
+```
+
 ---
 
 ### TEST INFRASTRUCTURE 확인 (Build/Refactor 필수)
@@ -136,12 +171,10 @@ echo "테스트 인프라: $hasTests"
 
 **인프라 있을 때:**
 ```
-테스트 인프라([프레임워크])가 있습니다.
-
-이 작업에 자동화 테스트를 포함할까요?
-A) TDD: RED-GREEN-REFACTOR 방식으로 진행
-B) 구현 후 테스트 추가
-C) 테스트 없음
+ask_user(
+  question="테스트 인프라([프레임워크])가 있습니다. 테스트 전략을 선택하세요:",
+  choices=["TDD — RED-GREEN-REFACTOR 방식으로 진행", "구현 후 테스트 추가 (Recommended)", "테스트 없음 — 프로토타입/실험"]
+)
 ```
 
 **인프라 없을 때:**

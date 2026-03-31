@@ -170,6 +170,48 @@ Ralph Loop 활성화: 완료까지 자동 반복
 
 ---
 
+## Background Workflow Persistence
+
+Ultrawork orchestrates long-running workflows through multiple phases (plan → fleet → verify). With `BACKGROUND_SESSIONS` enabled, ultrawork can checkpoint between phases so that workflows survive session restarts.
+
+### Checkpoint Pattern
+
+After each phase completion, write checkpoint via `t-state_write(mode: "ultrawork")`:
+
+| Phase | Checkpoint Data |
+|-------|----------------|
+| Planning | `{phase: "planning", plan_path, completed_phases: []}` |
+| Execution | `{phase: "execution", plan_path, completed_phases: ["planning"], fleet_results}` |
+| Verification | `{phase: "verification", plan_path, completed_phases: ["planning", "execution"], fleet_results}` |
+
+### State Schema
+
+```json
+{
+  "version": 1,
+  "active": true,
+  "phase": "execution",
+  "completed_phases": ["planning"],
+  "plan_path": "/tmp/ultrawork-plan-abc123.md",
+  "fleet_results": {
+    "task-1": "COMPLETE",
+    "task-2": "IN_PROGRESS"
+  },
+  "started_at": "2025-01-15T10:00:00Z",
+  "updated_at": "2025-01-15T10:15:00Z"
+}
+```
+
+### Resume Protocol
+
+On session restart with active ultrawork state:
+1. Read state via `t-state_read(mode: "ultrawork")`
+2. Skip completed phases
+3. Continue from last checkpoint
+4. Display: "Resuming ultrawork from phase: {phase} ({N}/{total} phases complete)"
+
+---
+
 ## Anti-Patterns (금지)
 
 - ❌ 비-trivial 태스크에서 TodoWrite 건너뜀
