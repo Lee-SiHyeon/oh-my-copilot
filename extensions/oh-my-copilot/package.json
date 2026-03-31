@@ -1,0 +1,20 @@
+{
+  "name": "oh-my-copilot-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/extension.mjs",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@github/copilot-sdk": "^0.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
