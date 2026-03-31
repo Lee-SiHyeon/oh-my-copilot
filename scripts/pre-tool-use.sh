@@ -47,6 +47,39 @@ emit_decision() {
 }
 
 # ---------------------------------------------------------------------------
+# 인자 해시 생성 함수 (permission cache key)
+# usage: compute_pattern_hash "<tool_name>" "<tool_args>"
+# ---------------------------------------------------------------------------
+compute_pattern_hash() {
+    local tool="$1" args="$2"
+    local input="${tool}:${args}"
+    if command -v md5sum &>/dev/null; then
+        echo -n "$input" | md5sum | cut -d' ' -f1
+    elif command -v sha256sum &>/dev/null; then
+        echo -n "$input" | sha256sum | cut -d' ' -f1
+    elif command -v md5 &>/dev/null; then
+        echo -n "$input" | md5
+    else
+        # fallback: simple bash hash
+        printf '%s' "$input" | cksum | cut -d' ' -f1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Permission cache 저장 함수
+# usage: cache_permission "<tool_name>" "<hash>" "<decision>" "<risk_level>"
+# ---------------------------------------------------------------------------
+cache_permission() {
+    local tool="$1" hash="$2" decision="$3" risk="${4:-low}"
+    [[ "$risk" == "high" ]] && return 0  # 고위험은 캐시하지 않음
+    command -v sqlite3 &>/dev/null || return 0
+    [[ -f "$DB_PATH" ]] || return 0
+    sqlite3 "$DB_PATH" \
+        "INSERT OR REPLACE INTO permission_cache (tool_name, pattern_hash, decision, risk_level)
+         VALUES ('${tool//\'/\'\'}', '${hash}', '${decision}', '${risk}');" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
 # Git status 기반 README 동기화 가드
 # ---------------------------------------------------------------------------
 normalize_status_path() {
@@ -125,6 +158,33 @@ TOOL_ARGS="${TOOL_ARGS_RAW}"
 # ---------------------------------------------------------------------------
 if [[ ! -f "$DB_PATH" ]] && [[ -f "${SCRIPT_DIR}/init-memory.sh" ]]; then
     bash "${SCRIPT_DIR}/init-memory.sh" &>/dev/null || true
+fi
+
+# ---------------------------------------------------------------------------
+# 3.5. Permission cache 조회 (위험 패턴은 아래에서 별도 처리)
+# ---------------------------------------------------------------------------
+if command -v sqlite3 &>/dev/null && [[ -f "$DB_PATH" ]]; then
+    PATTERN_HASH="$(compute_pattern_hash "$TOOL_NAME" "$TOOL_ARGS")"
+
+    # 만료된 캐시 정리 (1% 확률로 실행하여 성능 보호)
+    if (( RANDOM % 100 == 0 )); then
+        sqlite3 "$DB_PATH" \
+            "DELETE FROM permission_cache WHERE expires_at < datetime('now');" 2>/dev/null || true
+    fi
+
+    # 캐시 조회
+    cached_decision="$(sqlite3 "$DB_PATH" \
+        "SELECT decision FROM permission_cache \
+         WHERE tool_name='${TOOL_NAME//\'/\'\'}' \
+           AND pattern_hash='${PATTERN_HASH}' \
+           AND risk_level != 'high' \
+           AND expires_at > datetime('now') \
+         LIMIT 1;" 2>/dev/null || true)"
+
+    if [[ -n "$cached_decision" ]]; then
+        emit_decision "$cached_decision" "Cached permission (auto-approved)"
+        exit 0
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -241,6 +301,9 @@ if [[ -n "$domain" ]] && command -v sqlite3 &>/dev/null && [[ -f "$DB_PATH" ]]; 
 fi
 
 # ---------------------------------------------------------------------------
-# 8. 아무것도 매칭되지 않으면 조용히 종료
+# 8. 아무것도 매칭되지 않으면 safe → 캐시에 allow 저장 후 종료
 # ---------------------------------------------------------------------------
+if [[ -n "${PATTERN_HASH:-}" ]]; then
+    cache_permission "$TOOL_NAME" "$PATTERN_HASH" "allow" "low"
+fi
 exit 0

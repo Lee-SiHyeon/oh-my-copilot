@@ -105,6 +105,44 @@ CREATE TABLE IF NOT EXISTS improvement_candidates (
     status_snapshot   TEXT    NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS permission_cache (
+    tool_name    TEXT NOT NULL,
+    pattern_hash TEXT NOT NULL,
+    decision     TEXT NOT NULL CHECK(decision IN ('allow','deny')),
+    risk_level   TEXT DEFAULT 'low',
+    created_at   TEXT DEFAULT (datetime('now')),
+    expires_at   TEXT DEFAULT (datetime('now', '+7 days')),
+    PRIMARY KEY (tool_name, pattern_hash)
+);
+
+CREATE TABLE IF NOT EXISTS proposals (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_hash    TEXT    UNIQUE NOT NULL,
+    type            TEXT    NOT NULL,
+    content         TEXT    NOT NULL,
+    status          TEXT    DEFAULT 'pending',
+    priority        TEXT    DEFAULT 'normal',
+    file_path       TEXT,
+    suggested_change TEXT,
+    created_at      TEXT    DEFAULT (datetime('now')),
+    resolved_at     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals (status);
+CREATE INDEX IF NOT EXISTS idx_proposals_hash ON proposals (content_hash);
+
+CREATE TABLE IF NOT EXISTS agent_usage_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id      TEXT    NOT NULL,
+    task_signature  TEXT    NOT NULL,
+    agent_id        TEXT    NOT NULL,
+    outcome         TEXT    DEFAULT 'unknown',
+    reward          REAL    DEFAULT 0.0,
+    created_at      TEXT    DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_usage_session ON agent_usage_log (session_id);
+
 -- ── Seed: meta_policy_rules ──────────────────────────────────────────────────
 
 INSERT OR IGNORE INTO meta_policy_rules (id, task_domain, predicate_condition, action_constraint)

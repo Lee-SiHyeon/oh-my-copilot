@@ -50,6 +50,23 @@ main() {
 
     if [ ${#MISSING[@]} -eq 0 ]; then
         echo "[omc] All dependencies already installed: ${DEPS[*]}"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "✅ oh-my-copilot dependencies ready!"
+        echo ""
+        echo "⚡ IMPORTANT: Enable experimental features:"
+        echo "   Run '/experimental on' in Copilot CLI"
+        echo "   Or: copilot --experimental"
+        echo ""
+        echo "🚀 This unlocks: multi-turn agents, session store,"
+        echo "   structured forms, status line, and more."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        # Extensions scaffold notice
+        PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+        if [ -d "$PLUGIN_DIR/extensions/oh-my-copilot" ]; then
+            echo ""
+            echo "  📦 Extensions scaffold available — see extensions/README.md"
+        fi
         exit 0
     fi
 
@@ -74,6 +91,23 @@ main() {
 
     if [ ${#STILL_MISSING[@]} -eq 0 ]; then
         echo "[omc] ✓ All dependencies installed successfully"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "✅ oh-my-copilot dependencies ready!"
+        echo ""
+        echo "⚡ IMPORTANT: Enable experimental features:"
+        echo "   Run '/experimental on' in Copilot CLI"
+        echo "   Or: copilot --experimental"
+        echo ""
+        echo "🚀 This unlocks: multi-turn agents, session store,"
+        echo "   structured forms, status line, and more."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        # Extensions scaffold notice
+        PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+        if [ -d "$PLUGIN_DIR/extensions/oh-my-copilot" ]; then
+            echo ""
+            echo "  📦 Extensions scaffold available — see extensions/README.md"
+        fi
     else
         echo "[omc] WARNING: Still missing: ${STILL_MISSING[*]}"
         exit 1

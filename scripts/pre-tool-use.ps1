@@ -87,6 +87,51 @@ function Write-PermissionDecision {
     } | ConvertTo-Json -Compress
 }
 
+function Get-PatternHash {
+    param(
+        [string]$ToolName,
+        [string]$ToolArgs
+    )
+    $inputStr = "${ToolName}:${ToolArgs}"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($inputStr)
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    $hash = $md5.ComputeHash($bytes)
+    return ($hash | ForEach-Object { $_.ToString('x2') }) -join ''
+}
+
+function Get-CachedPermission {
+    param(
+        [string]$Sqlite3Path,
+        [string]$DbPath,
+        [string]$ToolName,
+        [string]$PatternHash
+    )
+    if ([string]::IsNullOrWhiteSpace($Sqlite3Path) -or -not (Test-Path $DbPath)) { return $null }
+    $safeTool = $ToolName -replace "'", "''"
+    $query = "SELECT decision FROM permission_cache WHERE tool_name='$safeTool' AND pattern_hash='$PatternHash' AND risk_level != 'high' AND expires_at > datetime('now') LIMIT 1;"
+    $result = @($query | & $Sqlite3Path $DbPath 2>$null)
+    if ($result.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($result[0])) {
+        return $result[0].Trim()
+    }
+    return $null
+}
+
+function Set-CachedPermission {
+    param(
+        [string]$Sqlite3Path,
+        [string]$DbPath,
+        [string]$ToolName,
+        [string]$PatternHash,
+        [string]$Decision,
+        [string]$RiskLevel = 'low'
+    )
+    if ($RiskLevel -eq 'high') { return }
+    if ([string]::IsNullOrWhiteSpace($Sqlite3Path) -or -not (Test-Path $DbPath)) { return }
+    $safeTool = $ToolName -replace "'", "''"
+    $query = "INSERT OR REPLACE INTO permission_cache (tool_name, pattern_hash, decision, risk_level) VALUES ('$safeTool', '$PatternHash', '$Decision', '$RiskLevel');"
+    $query | & $Sqlite3Path $DbPath 2>$null
+}
+
 function Get-ChangedPathsFromStatus {
     param(
         [string[]]$StatusLines
@@ -410,6 +455,14 @@ $dbPath  = Ensure-OmcMemoryDb -Sqlite3Path $sqlite3
 
 if (-not $sqlite3 -or -not (Test-Path $dbPath)) { return }
 
+# Permission cache lookup (danger patterns already handled above)
+$patternHash = Get-PatternHash -ToolName $toolName -ToolArgs $toolArgs
+$cachedDecision = Get-CachedPermission -Sqlite3Path $sqlite3 -DbPath $dbPath -ToolName $toolName -PatternHash $patternHash
+if (-not [string]::IsNullOrWhiteSpace($cachedDecision)) {
+    Write-PermissionDecision -Decision $cachedDecision -Reason 'Cached permission (auto-approved)'
+    return
+}
+
 $domain = ''
 if ($matchedDangerousGitPatterns.Count -gt 0) {
     $domain = 'git'
@@ -419,7 +472,13 @@ if ($matchedDangerousGitPatterns.Count -gt 0) {
     $domain = 'file_io'
 }
 
-if ([string]::IsNullOrWhiteSpace($domain)) { return }
+if ([string]::IsNullOrWhiteSpace($domain)) {
+    # Safe tool — cache allow and return
+    if (-not [string]::IsNullOrWhiteSpace($patternHash)) {
+        Set-CachedPermission -Sqlite3Path $sqlite3 -DbPath $dbPath -ToolName $toolName -PatternHash $patternHash -Decision 'allow' -RiskLevel 'low'
+    }
+    return
+}
 
 $rules = Invoke-SqliteQuery -Sqlite3Path $sqlite3 -DbPath $dbPath -Query "SELECT action_constraint FROM meta_policy_rules WHERE task_domain='$domain' AND is_active=1;"
 if ($rules.Count -gt 0) {

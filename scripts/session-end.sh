@@ -118,41 +118,115 @@ ensure_proposals_file() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# One-time migration: proposals.json → SQLite proposals table
+# ---------------------------------------------------------------------------
+migrate_proposals_json_to_sqlite() {
+  command -v sqlite3 &>/dev/null || return 0
+  command -v jq &>/dev/null || return 0
+  [[ -f "$DB_PATH" ]] || return 0
+  [[ -f "$PROPOSALS_PATH" ]] || return 0
+
+  # Check if migration is needed (flag file)
+  local migration_flag="${STATE_ROOT}/.proposals_migrated"
+  [[ -f "$migration_flag" ]] && return 0
+
+  # Ensure proposals table exists
+  sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_hash TEXT UNIQUE NOT NULL,
+    type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    priority TEXT DEFAULT 'normal',
+    file_path TEXT,
+    suggested_change TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    resolved_at TEXT
+  );" 2>/dev/null || return 0
+
+  local count
+  count=$(jq 'length' "$PROPOSALS_PATH" 2>/dev/null || echo "0")
+  if (( count == 0 )); then
+    touch "$migration_flag"
+    return 0
+  fi
+
+  local migrated=0
+  local skipped=0
+  # Read each proposal from JSON and insert into SQLite
+  for i in $(seq 0 $(( count - 1 ))); do
+    local p_hash p_type p_content p_status p_priority p_filepath p_change p_created
+    p_hash=$(jq -r ".[$i].contentHash // empty" "$PROPOSALS_PATH" 2>/dev/null)
+    p_type=$(jq -r ".[$i].type // \"unknown\"" "$PROPOSALS_PATH" 2>/dev/null)
+    p_content=$(jq -r ".[$i].description // \"\"" "$PROPOSALS_PATH" 2>/dev/null)
+    p_status=$(jq -r ".[$i].status // \"pending\"" "$PROPOSALS_PATH" 2>/dev/null)
+    p_priority=$(jq -r ".[$i].priority // \"normal\"" "$PROPOSALS_PATH" 2>/dev/null)
+    p_filepath=$(jq -r ".[$i].filePath // \"\"" "$PROPOSALS_PATH" 2>/dev/null)
+    p_change=$(jq -r ".[$i].suggestedChange // \"\"" "$PROPOSALS_PATH" 2>/dev/null)
+    p_created=$(jq -r ".[$i].timestamp // empty" "$PROPOSALS_PATH" 2>/dev/null)
+
+    [[ -z "$p_hash" ]] && { (( skipped++ )) || true; continue; }
+
+    sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO proposals (content_hash, type, content, status, priority, file_path, suggested_change, created_at)
+      VALUES ('$(sql_escape "$p_hash")', '$(sql_escape "$p_type")', '$(sql_escape "$p_content")', '$(sql_escape "$p_status")', '$(sql_escape "$p_priority")', '$(sql_escape "$p_filepath")', '$(sql_escape "$p_change")', '$(sql_escape "$p_created")');" 2>/dev/null && (( migrated++ )) || (( skipped++ )) || true
+  done
+
+  touch "$migration_flag"
+  echo "[omc] proposals.json → SQLite migration: ${migrated} migrated, ${skipped} skipped (duplicates)" >&2
+}
+
+migrate_proposals_json_to_sqlite
+
 add_proposal() {
   local proposal_type="$1"
   local description="$2"
   local file_path="$3"
   local priority="${4:-normal}"
   local suggested_change="${5:-}"
-  
+
   ensure_proposals_file
 
   # Content hash for deduplication (type + path + change summary)
   local content_hash
   content_hash="$(hash_content "${proposal_type}:${file_path}:${suggested_change}")"
 
+  local proposal_id
+  proposal_id="$(date '+%Y%m%d%H%M%S')-${content_hash:0:8}"
+
+  # PRIMARY: SQLite proposals table (O(1) dedup via UNIQUE constraint on content_hash)
+  if command -v sqlite3 &>/dev/null && [[ -f "$DB_PATH" ]]; then
+    # Ensure proposals table exists
+    sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS proposals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content_hash TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      priority TEXT DEFAULT 'normal',
+      file_path TEXT,
+      suggested_change TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      resolved_at TEXT
+    );" 2>/dev/null || true
+
+    local insert_changes
+    insert_changes=$(sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO proposals (content_hash, type, content, priority, file_path, suggested_change)
+      VALUES ('$(sql_escape "$content_hash")', '$(sql_escape "$proposal_type")', '$(sql_escape "$description")', '$(sql_escape "$priority")', '$(sql_escape "$file_path")', '$(sql_escape "$suggested_change")');
+      SELECT changes();" 2>/dev/null || echo "0")
+
+    if (( insert_changes == 0 )); then
+      echo "[omc] Proposal already queued (dedup via SQLite: $content_hash)" >&2
+      return 0
+    fi
+  fi
+
+  # SECONDARY: JSON proposals file for transparency/audit trail
   # flock ensures atomic check-and-insert to prevent duplicate proposals under parallel sessions
   (
     flock -x 200
 
-    # OPTIMIZATION: Current O(N) dedup scan via jq. For high-volume usage, consider migrating
-    # proposals to SQLite with: UNIQUE(contentHash) constraint + INSERT OR IGNORE.
-    # This would make deduplication O(1) and atomic (also fixing the race condition).
-    # Check if this proposal already exists
-    if command -v jq &>/dev/null; then
-      local existing
-      existing="$(jq -r ".[] | select(.contentHash == \"${content_hash}\") | .id" "$PROPOSALS_PATH" 2>/dev/null | head -1)"
-      if [[ -n "$existing" ]]; then
-        echo "[omc] Proposal already queued (dedup: $content_hash, id: $existing)" >&2
-        exit 0
-      fi
-    fi
-
-    # Generate unique ID (timestamp + hash prefix)
-    local proposal_id
-    proposal_id="$(date '+%Y%m%d%H%M%S')-${content_hash:0:8}"
-
-    # Build proposal JSON using printf/string manipulation (portable, no jq dependency)
+    # Build proposal JSON
     local proposal
     proposal=$(cat <<EOF
 {
@@ -169,23 +243,21 @@ add_proposal() {
 EOF
 )
 
-    # Append to proposals file (simple array append via temp file)
+    # Append to proposals file
     if command -v jq &>/dev/null; then
-      # Use jq if available for robust JSON handling
       if ! jq ". += [$(printf '%s' "$proposal")]" "$PROPOSALS_PATH" > "${PROPOSALS_PATH}.tmp" 2>/dev/null || \
          ! mv "${PROPOSALS_PATH}.tmp" "$PROPOSALS_PATH"; then
-        echo "[omc] ERROR: Failed to update proposals file" >&2
-        exit 1
+        echo "[omc] WARNING: Failed to update proposals JSON file (SQLite record exists)" >&2
       fi
     else
       # Fallback: manual array append (assumes well-formed JSON)
       local tmp_file="${PROPOSALS_PATH}.tmp"
       {
-        head -c -1 "$PROPOSALS_PATH"  # Remove trailing ]
+        head -c -1 "$PROPOSALS_PATH"
         echo ","
         echo "$proposal"
         echo "]"
-      } > "$tmp_file" && mv "$tmp_file" "$PROPOSALS_PATH" || exit 1
+      } > "$tmp_file" && mv "$tmp_file" "$PROPOSALS_PATH" || true
     fi
 
     echo "[omc] Proposal queued ($proposal_type): $description (id: $proposal_id)" >&2
@@ -294,6 +366,133 @@ INSERT INTO improvement_candidates (
 }
 
 # ---------------------------------------------------------------------------
+# Agent usage tracking for Q-Learning rewards
+# ---------------------------------------------------------------------------
+# Collect agent usage from this session and record in agent_usage_log.
+# Heuristic: parse session.log for agent spawn events, or use LEARNINGS.md
+# entries from the current session as a proxy for agent activity.
+#
+# Outcome determination:
+#   - success (reward=1.0):  session ended normally, no error keywords in recent log
+#   - partial (reward=0.5):  session ended but with warnings/retries
+#   - failure (reward=-0.5): error patterns detected in session log
+
+track_agent_usage() {
+  command -v sqlite3 &>/dev/null || return 0
+  [[ -f "$DB_PATH" ]] || return 0
+
+  # Generate a unique session ID for this session
+  local session_id
+  session_id="$(date '+%Y%m%d%H%M%S')-$$"
+
+  # Ensure table exists
+  sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS agent_usage_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    task_signature TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    outcome TEXT DEFAULT 'unknown',
+    reward REAL DEFAULT 0.0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );" 2>/dev/null || true
+
+  # Heuristic: scan recent session log entries for agent-related patterns
+  # Look for lines logged AFTER the session start (last SESSION_START entry)
+  local log_file="$LOG_PATH"
+  [[ -f "$log_file" ]] || return 0
+
+  # Extract agent mentions from recent log and LEARNINGS.md
+  local agents_used=()
+  local task_sigs=()
+
+  # Pattern: agent names that match known Q-table entries
+  # Map detected patterns to (task_signature, agent_id) pairs
+  local -A agent_task_map=(
+    ["hephaestus"]="code_complex"
+    ["sisyphus-junior"]="code_simple"
+    ["prometheus"]="planning"
+    ["oracle"]="debugging"
+    ["nlm-researcher"]="research"
+    ["librarian"]="research"
+    ["explore"]="codebase_search"
+    ["metis"]="planning"
+    ["momus"]="planning"
+  )
+
+  # Scan LEARNINGS.md for agent mentions in today's entries
+  if [[ -f "$LEARN_PATH" ]]; then
+    local today_pattern
+    today_pattern="$(date '+%Y-%m-%d')"
+    while IFS= read -r learn_line; do
+      for agent_name in "${!agent_task_map[@]}"; do
+        if echo "$learn_line" | grep -qi "$agent_name"; then
+          # Check if we already added this agent
+          local already_added=false
+          for existing in "${agents_used[@]+"${agents_used[@]}"}"; do
+            [[ "$existing" == "$agent_name" ]] && already_added=true && break
+          done
+          if [[ "$already_added" != true ]]; then
+            agents_used+=("$agent_name")
+            task_sigs+=("${agent_task_map[$agent_name]}")
+          fi
+        fi
+      done
+    done < <(grep "$today_pattern" "$LEARN_PATH" 2>/dev/null || true)
+  fi
+
+  # Also scan session log for recent agent references
+  if [[ -f "$log_file" ]]; then
+    local recent_lines
+    recent_lines="$(tail -50 "$log_file" 2>/dev/null || true)"
+    for agent_name in "${!agent_task_map[@]}"; do
+      if echo "$recent_lines" | grep -qi "$agent_name"; then
+        local already_added=false
+        for existing in "${agents_used[@]+"${agents_used[@]}"}"; do
+          [[ "$existing" == "$agent_name" ]] && already_added=true && break
+        done
+        if [[ "$already_added" != true ]]; then
+          agents_used+=("$agent_name")
+          task_sigs+=("${agent_task_map[$agent_name]}")
+        fi
+      fi
+    done
+  fi
+
+  # Determine outcome based on session signals
+  local outcome="success"
+  local reward=1.0
+  if [[ -f "$log_file" ]]; then
+    local recent_errors
+    recent_errors="$(tail -20 "$log_file" 2>/dev/null | grep -ci 'ERROR\|FAIL\|fatal\|panic' || echo "0")"
+    local recent_warnings
+    recent_warnings="$(tail -20 "$log_file" 2>/dev/null | grep -ci 'WARNING\|WARN\|retry' || echo "0")"
+    if (( recent_errors > 2 )); then
+      outcome="failure"
+      reward=-0.5
+    elif (( recent_errors > 0 || recent_warnings > 2 )); then
+      outcome="partial"
+      reward=0.5
+    fi
+  fi
+
+  # Record each agent usage
+  local recorded=0
+  for i in "${!agents_used[@]}"; do
+    local agent="${agents_used[$i]}"
+    local task_sig="${task_sigs[$i]}"
+    sqlite3 "$DB_PATH" "INSERT INTO agent_usage_log (session_id, task_signature, agent_id, outcome, reward)
+      VALUES ('$(escape_sql "$session_id")', '$(escape_sql "$task_sig")', '$(escape_sql "$agent")', '$(escape_sql "$outcome")', $reward);" 2>/dev/null || true
+    (( recorded++ )) || true
+  done
+
+  if (( recorded > 0 )); then
+    echo "[omc] Agent usage tracked: ${recorded} agents (outcome: $outcome, reward: $reward)" >&2
+  fi
+}
+
+track_agent_usage
+
+# ---------------------------------------------------------------------------
 # Queue shared-source improvement proposal
 # ---------------------------------------------------------------------------
 if ! command -v git &>/dev/null; then
@@ -345,6 +544,32 @@ else
   else
     echo "[omc] No shared source changes to queue"
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# Garbage Collection: proposals.json aged-out entries
+# ---------------------------------------------------------------------------
+if command -v jq &>/dev/null && [[ -f "$PROPOSALS_PATH" ]]; then
+  (
+    flock -x 200
+    _gc_before=$(jq 'length' "$PROPOSALS_PATH" 2>/dev/null || echo "0")
+    # Remove entries with status="done" older than 30 days
+    jq '[.[] | select(
+      (.status == "done" and
+       (now - (.timestamp | fromdateiso8601) > (30 * 86400)))
+      | not
+    )]' "$PROPOSALS_PATH" > "${PROPOSALS_PATH}.gc_tmp" 2>/dev/null
+    if [[ -s "${PROPOSALS_PATH}.gc_tmp" ]]; then
+      mv "${PROPOSALS_PATH}.gc_tmp" "$PROPOSALS_PATH"
+      _gc_after=$(jq 'length' "$PROPOSALS_PATH" 2>/dev/null || echo "0")
+      _gc_removed=$(( _gc_before - _gc_after ))
+      if (( _gc_removed > 0 )); then
+        echo "[omc] GC: proposals.json — ${_gc_removed} done entries removed (>30 days)" >&2
+      fi
+    else
+      rm -f "${PROPOSALS_PATH}.gc_tmp"
+    fi
+  ) 200>"${PROPOSALS_PATH}.lock"
 fi
 
 # ---------------------------------------------------------------------------

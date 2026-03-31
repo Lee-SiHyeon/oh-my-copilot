@@ -18,6 +18,43 @@ if [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qi 'microsoft' /proc/version 2>/dev/nu
 fi
 
 # ---------------------------------------------------------------------------
+# Experimental mode advisory (one-time per install)
+# ---------------------------------------------------------------------------
+_omc_exp_flag="${HOME}/.copilot/oh-my-copilot/.experimental-advised"
+if [ ! -f "$_omc_exp_flag" ]; then
+  # Check if experimental is already enabled in config.json
+  _copilot_cfg="${HOME}/.copilot/config.json"
+  _exp_enabled=false
+  if [ -f "$_copilot_cfg" ] && command -v jq &>/dev/null; then
+    _exp_enabled="$(jq -r '.experimental // false' "$_copilot_cfg" 2>/dev/null || echo false)"
+  fi
+  if [ "$_exp_enabled" != "true" ]; then
+    echo "[omc] ⚡ Tip: Run '/experimental on' to unlock full oh-my-copilot capabilities."
+    echo "[omc]    (multi-turn agents, session store, structured forms, status line)"
+  fi
+  # Create flag so this message shows only once
+  mkdir -p "$(dirname "$_omc_exp_flag")"
+  touch "$_omc_exp_flag"
+fi
+
+# ---------------------------------------------------------------------------
+# Background Session Recovery
+# ---------------------------------------------------------------------------
+# Check for active ralph/ultrawork states from previous sessions
+if [ "$_exp_enabled" = "true" ]; then
+    _ralph_state="${HOME}/.copilot/oh-my-copilot/ralph-state.json"
+    if [ -f "$_ralph_state" ] && command -v jq >/dev/null 2>&1; then
+        _ralph_active=$(jq -r '.active // false' "$_ralph_state" 2>/dev/null)
+        if [ "$_ralph_active" = "true" ]; then
+            _ralph_iter=$(jq -r '.iteration // 0' "$_ralph_state" 2>/dev/null)
+            _ralph_task=$(jq -r '.task // "unknown"' "$_ralph_state" 2>/dev/null)
+            echo "⏸️  Found paused ralph-loop: iteration $_ralph_iter — \"$_ralph_task\""
+            echo "   Use /ralph to resume or /cancel to discard"
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Variables
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -122,3 +159,18 @@ if [[ ${#agent_names[@]} -gt 0 ]]; then
 else
   echo "[omc] No personal agents yet. Run: /agent oh-my-copilot:personal-advisor"
 fi
+
+# ---------------------------------------------------------------------------
+# STATUS_LINE: Real-time status display for Copilot CLI
+# ---------------------------------------------------------------------------
+# To enable the omc status line, add to ~/.copilot/config.json:
+#
+#   {
+#     "statusLine": {
+#       "command": "~/.copilot/installed-plugins/_direct/Lee-SiHyeon--oh-my-copilot/scripts/status-line.sh"
+#     }
+#   }
+#
+# The status line shows: memory facts | pending proposals | active mode
+# Example: 🧠 47 facts | 📋 3 pending | 🔄 ultrawork R2/5
+# ---------------------------------------------------------------------------
