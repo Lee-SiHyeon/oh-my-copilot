@@ -218,6 +218,43 @@ Multi-turn verifier: {agent_id} (turn {T}, status: {idle|completed})
 
 ---
 
+## Background Session Persistence
+
+When `BACKGROUND_SESSIONS` experimental feature is enabled, ralph-loop can opt into persistent mode that survives session restarts.
+
+### Persistent Mode Pattern
+
+1. **On loop start**: Write state to `~/.copilot/oh-my-copilot/ralph-state.json`
+2. **State includes**:
+```json
+{
+  "version": 1,
+  "active": true,
+  "iteration": 3,
+  "max_iterations": 10,
+  "task": "Review and correct all Phase 1-3 changes",
+  "phase": "verification",
+  "last_result": "3 issues found, 2 fixed",
+  "todos": ["fix-permissions-cache", "verify-q-learning"],
+  "started_at": "2025-01-15T10:00:00Z",
+  "updated_at": "2025-01-15T10:05:00Z"
+}
+```
+3. **On session restart**: Check for ralph-state.json → offer to resume
+4. **On loop end** (success or max iterations): Clean up state file
+
+### Resume Protocol
+
+1. Read state from file → parse iteration, task, todos
+2. Display summary: "Paused ralph-loop at iteration {N}/{max}: {task}"
+3. Ask user: "Resume from iteration {N}?" (via ask_user with choices)
+4. If resume → load todos snapshot → continue from last phase
+5. If reset → clear state → start fresh
+
+> 💡 This uses `t-state_write(mode: "ralph")` / `t-state_read(mode: "ralph")` tools when available, falling back to direct JSON file I/O.
+
+---
+
 <!-- LOW-PRIORITY: Examples below may be removed during compaction -->
 
 ## 자주 쓰이는 패턴
