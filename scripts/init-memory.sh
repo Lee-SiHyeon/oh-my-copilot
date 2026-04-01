@@ -12,6 +12,7 @@
 set -euo pipefail
 
 # Dependency check
+# shellcheck disable=SC2043  # Single-dep loop retained for future extensibility
 for dep in sqlite3; do
   if ! command -v "$dep" &>/dev/null; then
     echo "[omc] WARNING: '$dep' is not installed. Some features may be unavailable." >&2

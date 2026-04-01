@@ -21,6 +21,7 @@ set -uo pipefail
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(dirname "$SCRIPT_DIR")"
+export PLUGIN_ROOT
 STATE_ROOT="${HOME}/.copilot/oh-my-copilot"
 DB_PATH="${STATE_ROOT}/omc-memory.db"
 # State file locations to check (both oh-my-claudecode and oh-my-copilot paths)
