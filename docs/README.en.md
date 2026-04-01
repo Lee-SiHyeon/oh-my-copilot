@@ -13,7 +13,7 @@
 
 ## ✨ Highlights
 
-- **15 specialized agents** — each with a single responsibility, orchestrated by Atlas
+- **15 specialized agents** — each with a single responsibility, orchestrated by Meta-Orchestrator → Atlas → Specialists
 - **Parallel execution** — dispatch multiple agents simultaneously with `/fleet`
 - **Safety hooks** — dangerous commands (`rm -rf`, force push, `DROP TABLE`) are intercepted before they run
 - **Human-gated self-evolution** — agents propose improvements; you decide what gets applied
@@ -40,10 +40,10 @@ Restart Copilot CLI, then run:
 **3. Start working**
 
 ```bash
-copilot --agent oh-my-copilot:atlas
+copilot --agent oh-my-copilot:meta-orchestrator
 ```
 
-Then describe your task — Atlas handles delegation:
+Then describe your task — Meta-Orchestrator decomposes and delegates:
 
 ```
 Build a full REST API auth system
@@ -57,7 +57,7 @@ oh-my-copilot relies on Copilot CLI experimental features for full capability. R
 
 | Feature | What it unlocks |
 |---------|-----------------|
-| `MULTI_TURN_AGENTS` | Atlas keeps context across delegation rounds |
+| `MULTI_TURN_AGENTS` | Agents keep context across delegation rounds |
 | `SUBAGENT_COMPACTION` | Long-running tasks don't lose context mid-flight |
 | `SESSION_STORE` | Cross-session memory and learning persistence |
 | `ASK_USER_ELICITATION` | Structured interview forms (Prometheus, deep-interview) |
@@ -75,7 +75,8 @@ oh-my-copilot relies on Copilot CLI experimental features for full capability. R
 
 | Agent | Role | Best For |
 |-------|------|----------|
-| **Atlas** 🗺️ | Master Orchestrator | Entry point for all tasks. Delegates via `/fleet` and `@agent` |
+| **Meta-Orchestrator** 🌐 | Top-level Orchestrator | Task decomposition, parallel Atlas session management, session memory, adaptive reassignment |
+| **Atlas** 🗺️ | Layer 1 Orchestrator | Delegates to specialists within a single task scope via `/fleet` and `@agent` |
 | **Sisyphus** ⚙️ | Complex Multi-Task Orchestrator | Multi-step task decomposition and parallel execution |
 | **Sisyphus-Junior** 🔩 | Focused Task Executor | Single atomic tasks, no delegation |
 | **Hephaestus** 🔨 | Deep Implementation Specialist | Code implementation, refactoring, bug fixes |
@@ -89,14 +90,14 @@ oh-my-copilot relies on Copilot CLI experimental features for full capability. R
 | **Multimodal-Looker** 👁️ | Image & Document Analyzer | Screenshot analysis, PDF extraction, UI review |
 | **Ultrawork** ⚡ | Full Orchestration Mode | Planning + parallel execution + verification in one command |
 | **Personal-Advisor** 🧩 | Personalization Advisor | Analyzes session patterns → recommends custom agents |
-| **Meta-Orchestrator** 🌐 | Multi-Atlas Coordinator | Spawns parallel Atlas sessions for true parallelism |
 
 ### Invoking agents
 
-Start with Atlas — it delegates internally. Call agents directly for targeted work:
+Start with Meta-Orchestrator for complex multi-task work, or Atlas for focused single tasks. Call agents directly for targeted work:
 
 ```bash
-copilot --agent oh-my-copilot:atlas              # Recommended entry point
+copilot --agent oh-my-copilot:meta-orchestrator  # Top-level orchestrator (recommended)
+copilot --agent oh-my-copilot:atlas              # Single-task orchestration
 copilot --agent oh-my-copilot:hephaestus         # Direct implementation
 copilot --agent oh-my-copilot:oracle             # Read-only consultation
 copilot --agent oh-my-copilot:nlm-researcher     # Deep research & synthesis
@@ -183,7 +184,8 @@ copilot --agent oh-my-copilot:personal-advisor
 
 | Command | Description |
 |---------|-------------|
-| `/atlas` | Dispatch master orchestrator |
+| `/meta-orchestrator` | Top-level orchestrator — task decomposition + parallel Atlas sessions |
+| `/atlas` | Layer 1 orchestrator — single task scope |
 | `/ultrawork` | Full autonomous workflow |
 | `/ralph-loop` | Self-correcting loop until completion |
 | `/prometheus` | Strategic planning with interview |
@@ -206,9 +208,9 @@ Choose the right model per task to control costs:
 | 🆓 Free | `gpt-4.1` | 0x | Free high-quality alternative |
 | 🔁 Fallback | `gpt-5.4` | 1x | Auto-retry on Sonnet rate-limit (429) |
 | 💡 Code | `gpt-5.3-codex` | 1x | Code generation focus |
-| ❌ Banned | `claude-opus-*` | 3–30x | Never use — cost prohibitive |
+| 💎 Premium | `claude-opus-*` | 3–30x | Selective use for high-complexity tasks — architecture, deep debugging, complex orchestration |
 
-> 🚨 **Opus is banned:** `claude-opus-4.5` / `claude-opus-4.6` / `claude-opus-4.6-fast` — no exceptions. **Recommended:** `gpt-4.1` (free) for routine → `claude-sonnet-4.6` for complex work → nothing above. Atlas auto-retries with `gpt-5.4` on Sonnet 429 errors.
+> 💡 **Recommended tier path:** `gpt-4.1` (free) for routine → `claude-sonnet-4.6` for standard work → `claude-opus-4.6` for high-complexity tasks (architecture, deep debugging, complex orchestration). Atlas auto-retries with `gpt-5.4` on Sonnet 429 errors.
 
 ---
 
@@ -262,7 +264,7 @@ pending → in_progress → completed
 - **pending** — queued, awaiting claim | **in_progress** — claimed, executing | **completed** — verified results | **failed** — needs human intervention
 - One task, one agent (hash-based dedup). No backward transitions. Atlas monitors and reassigns stalled tasks.
 
-**Session lifecycle:** `sessionStart` loads context → Atlas decomposes request → agents execute in dependency order → `sessionEnd` consolidates learnings and queues proposals.
+**Session lifecycle:** `sessionStart` loads context → Meta-Orchestrator decomposes request → Atlas coordinates specialists in dependency order → `sessionEnd` consolidates learnings and queues proposals.
 
 ---
 
@@ -274,7 +276,7 @@ oh-my-copilot/
 ├── hooks.json                       # Safety hooks
 ├── LEARNINGS.md                     # Plugin-level learning log
 ├── agents/                          # v2.0 primary system
-│   ├── atlas.agent.md               # Master orchestrator
+│   ├── atlas.agent.md               # Layer 1 orchestrator
 │   ├── sisyphus.agent.md            # Multi-task orchestrator
 │   ├── sisyphus-junior.agent.md     # Atomic task executor
 │   ├── hephaestus.agent.md          # Implementation specialist
