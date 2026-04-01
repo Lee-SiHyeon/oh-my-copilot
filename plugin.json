@@ -1,12 +1,13 @@
 {
   "name": "oh-my-copilot",
-  "description": "Production-grade agentic framework for GitHub Copilot CLI. 14 specialized agents (Atlas, Sisyphus, Hephaestus, Oracle, Prometheus, Metis, Momus, Explore, Librarian, Multimodal-Looker, Ultrawork, NLM-Researcher, Personal-Advisor, Sisyphus-Junior) with TDD-verified safety hooks and NotebookLM research integration.",
+  "description": "Multi-agent orchestration plugin for GitHub Copilot CLI — 15 agents, 23 skills",
   "version": "2.2.0",
   "author": {
     "name": "Lee SiHyeon",
     "url": "https://github.com/Lee-SiHyeon"
   },
   "license": "MIT",
+  "homepage": "https://github.com/Lee-SiHyeon/oh-my-copilot",
   "repository": "https://github.com/Lee-SiHyeon/oh-my-copilot",
   "keywords": [
     "agents",
@@ -23,8 +24,7 @@
   ],
   "agents": "agents/",
   "skills": [
-    "skills/",
-    "."
+    "skills/"
   ],
   "hooks": "hooks.json",
   "changelog": {
