@@ -320,16 +320,6 @@ function Test-AgentPolicyContext {
         'modelselection',
         'selectedmodel'
     )
-    $opusPattern = '(?i)\bclaude-opus(?:-[a-z0-9.]+)?\b|\bopus(?:-[a-z0-9.]+)?\b'
-    $hasOpusModelSelection = @(
-            $scalarEntries | Where-Object {
-                @(Get-NormalizedPathFieldNames -Path $_.Path | Where-Object { $_ -in $modelFieldNames }).Count -gt 0 -and
-                $_.Value -match $opusPattern
-            }
-        ).Count -gt 0
-    if ($hasOpusModelSelection) {
-        return $true
-    }
 
     $agentFieldNames = @(
         'agent',

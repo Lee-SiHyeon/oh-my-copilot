@@ -231,9 +231,7 @@ if [[ "$is_shell_tool" == true ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Agent policy 체크
-#    toolName이 task/delegate/subagent/modelselect 계열이고
-#    toolArgs에 opus 관련 키워드 포함 시 거부 요청
+# 5. Agent tool detection (for domain logic below)
 # ---------------------------------------------------------------------------
 is_agent_tool=false
 case "${TOOL_NAME,,}" in
@@ -241,14 +239,6 @@ case "${TOOL_NAME,,}" in
         is_agent_tool=true
         ;;
 esac
-
-if [[ "$is_agent_tool" == true ]]; then
-    args_lower="${TOOL_ARGS,,}"
-    if [[ "$args_lower" == *"claude-opus"* ]] || [[ "$args_lower" == *"opus"* ]]; then
-        emit_decision "ask" "Policy check (agent): MUST refuse and use Sonnet instead"
-        exit 0
-    fi
-fi
 
 # ---------------------------------------------------------------------------
 # 6. README 동기화 가드
@@ -273,10 +263,8 @@ if [[ "$args_lower_for_domain" == *"git push --force"* ]] || \
    [[ "$args_lower_for_domain" == *"git push -f"* ]]; then
     domain="git"
 # NOTE:
-# Agent tool calls already have explicit validation above for real policy violations
-# such as Opus model requests.  Treating every task/agent invocation as a generic
-# "agent" policy match creates noisy permission prompts even for compliant calls.
-# Skip the broad DB-backed agent reminder here so only actionable checks ask.
+# Agent tool calls skip broad DB-backed policy matching to avoid noisy permission
+# prompts for compliant calls. Only actionable domain checks (git, rm, etc.) ask.
 elif [[ "$is_agent_tool" == true ]]; then
     domain=""
 elif [[ "$args_lower_for_domain" == *"rm -rf"* ]] || \
