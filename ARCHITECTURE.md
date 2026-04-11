@@ -140,6 +140,80 @@ metis (Planner) → hephaestus (Generator) → oracle (Evaluator)
 
 ---
 
+## 3.1 Routing Decision Table
+
+오케스트레이션 라우팅 결정 표: 작업 특성에 따른 최적 에이전트 선택
+
+| 조건 | 라우팅 대상 | 이유 |
+|------|------------|------|
+| `task_count >= 3` AND `fully_independent == true` | **meta-orchestrator** (Parallel Mode) | 3개 이상의 완전 독립적 작업 → 병렬 세션 분할 |
+| `task_count >= 3` AND `has_sequential_deps == true` | **meta-orchestrator** (Adaptive Mode) | 다단계 파이프라인 → 라운드 기반 적응형 할당 |
+| `task_count == 1` AND `complexity == "high"` AND `ambiguity == "high"` AND `risk == "high"` | **atlas** (Heavy Mode: metis→hephaestus→oracle) | 복잡+모호+위험 → 3에이전트 폐쇄 루프 검증 |
+| `task_count == 1` AND `complexity == "high"` AND (`ambiguity == "low"` OR `risk == "low"`) | **atlas** (Light Mode → hephaestus) | 단일 복잡 작업 → 전문가 직접 위임 |
+| `task_count == 1` AND `complexity == "low"` | **sisyphus-junior** 또는 직접 전문가 | 단순 원자적 작업 → 빠른 처리 |
+| `requires_persistence == true` AND `multi_step == true` | **sisyphus** | 체크리스트 기반 지속적 실행 |
+| `requires_parallel_fleet == true` AND `NO_meta_orchestration_needed` | **ultrawork** | /fleet 중심 병렬 실행 엔진 |
+| `task_count == 2` AND `independent == true` | **atlas** (/fleet 직접 사용) | 2작업 병렬은 meta 오버헤드 불필요 |
+| `requires_codebase_search == true` | **explore** (Haiku) | 빠른 코드베이스 검색 |
+| `requires_architecture_advice == true` | **oracle** (Opus) | 아키텍처 분석/디버깅 조언 |
+| `requires_pre_planning == true` | **metis** (Opus) | 사전 계획 및 지시문 생성 |
+| `requires_plan_review == true` | **momus** (Opus) | 계획 검토 및 평가 |
+| `requires_library_research == true` | **librarian** (Sonnet) | 라이브러리 문서 조사 |
+| `requires_thinking_brain == true` | **nlm-researcher** (Sonnet) | 아이디에이션, 전략, 종합 |
+| `requires_web_search == true` (사용자 대면 답변 전) | **atlas** (`web_search` 기본 실행) | 팩트 체크 기본 동작 |
+
+### 라우팅 우선순위 결정 트리
+
+```
+1단계: 작업 분해
+   │
+   ├─ 작업 수 >= 3?
+   │   ├─ 예 → 독립성 검사
+   │   │   ├─ 완전 독립 → meta-orchestrator (Parallel Mode)
+   │   │   └─ 순차 의존 → meta-orchestrator (Adaptive Mode)
+   │   │
+   │   └─ 아니오 → 2단계
+   │
+2단계: 단일 작업 복잡도 평가
+   │
+   ├─ 복잡도 == "high"?
+   │   ├─ 예 → 모호성/위험도 검사
+   │   │   ├─ 모호 OR 위험 → atlas (Heavy Mode: metis→hephaestus→oracle)
+   │   │   └─ 명확 AND 안전 → atlas (Light Mode → hephaestus)
+   │   │
+   │   └─ 아니오 → 3단계
+   │
+3단계: 특수 요구사항 검사
+   │
+   ├─ 지속성 필요? → sisyphus
+   ├─ /fleet 병렬 필요? → ultrawork
+   ├─ 코드베이스 검색? → explore
+   ├─ 아키텍처 조언? → oracle
+   ├─ 사전 계획? → metis
+   ├─ 계획 검토? → momus
+   ├─ 라이브러리 조사? → librarian
+   ├─ 사고 브레인? → nlm-researcher
+   │
+   └─ 해당 없음 → 4단계
+   │
+4단계: 기본 라우팅
+   │
+   └─ 단순 작업 → sisyphus-junior 또는 직접 전문가 위임
+```
+
+### 비용 고려 사항
+
+| 라우팅 | Opus 호출 수 | 사용 시기 |
+|--------|--------------|----------|
+| 1-Layer (atlas 직접) | 1-4 | 단일 작업 또는 순차 작업 |
+| 2-Layer Parallel (meta + 3 atlas) | 4-5 | 3개 이상 독립 병렬 작업 |
+| 2-Layer Adaptive (meta + N 라운드) | 라운드당 3-7 | 다단계 파이프라인 + 예측 |
+| Heavy Mode (atlas 내부) | 3 (metis+hephaestus+oracle) | 복잡+모호+위험 작업 |
+
+**규칙**: 병렬 또는 적응형 이득 > 라운드당 +1 Opus 비용일 때만 meta-orchestrator 호출.
+
+---
+
 ## 4. Data Flow & Database Schema
 
 ### 7 SQLite Tables in `omc-memory.db`

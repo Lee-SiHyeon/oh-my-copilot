@@ -272,8 +272,12 @@ copilot --agent oh-my-copilot:personal-advisor
 |---|---|
 | **파일 삭제** | `rm -rf`, `Remove-Item -Recurse -Force`, `del /f /s`, `rd /s /q` |
 | **강제 푸시** | `git push --force`, `git push -f` |
+| **하드 리셋** | `git reset --hard` |
 | **DB 파괴** | `DROP TABLE`, `DELETE FROM` |
-| **시스템 포맷** | `format` |
+| **시스템 포맷** | `format`, `mkfs` |
+| **시스템 종료** | `shutdown` |
+| **디스크 직접 쓰기** | `dd if=` |
+| **파일 잘림** | `truncate` |
 
 위험 패턴 감지 시 실행이 **자동 중단**되고 사용자 확인을 요청합니다.
 
@@ -362,6 +366,14 @@ oh-my-copilot/
 │   ├── ultrawork.agent.md           ← 풀 오케스트레이션 모드
 │   └── personal-advisor.agent.md    ← 개인 에이전트 추천/초안 어드바이저
 ├── scripts/
+│   ├── session-end.sh               ← 세션 종료 오케스트레이터 (lib/ 모듈 호출)
+│   ├── lib/                         ← 세션 종료 라이브러리 모듈
+│   │   ├── common.sh                ← 공통 변수, 에러 핸들링, 유틸리티
+│   │   ├── git-status-parser.sh     ← git 상태 파싱, 경로 분류
+│   │   ├── proposal-queue.sh        ← 제안 큐 관리, GC
+│   │   └── readme-sync-guard.sh     ← README 동기화 검증
+│   ├── pre-tool-use.sh              ← 위험 명령 감지, 권한 캐시
+│   ├── consolidate.sh               ← 런타임 학습 통합
 │   └── collect-session-data.ps1     ← 세션 기록·todo·Q-table·MCP 신호 수집
 ├── local/                           ← gitignored 개인 override 영역
 │   ├── README.md                    ← 개인화 사용 가이드

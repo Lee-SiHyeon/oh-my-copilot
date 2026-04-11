@@ -105,7 +105,7 @@ if [[ -f "$LEARN_PATH" ]]; then
         # ── Low-signal filter ─────────────────────────────────────────────
         # Skip lines that are too short to carry useful information, or that
         # contain boilerplate "no changes" messages.
-        if (( ${#line:-0} < 30 )); then
+        if (( ${#line} < 30 )); then
             (( skipped++ )) || true
             continue
         fi
@@ -122,7 +122,7 @@ if [[ -f "$LEARN_PATH" ]]; then
         if echo "$line" | grep -qi "tool";    then category="tool";    fi
 
         # ── Token weight (capped at 100) ──────────────────────────────────
-        token_weight=$(( ${#line:-0} / 10 ))
+        token_weight=$(( ${#line} / 10 ))
         (( token_weight > 100 )) && token_weight=100
 
         # ── SQL injection prevention: escape single and double quotes ────────

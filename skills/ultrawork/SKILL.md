@@ -19,6 +19,8 @@ allowed-tools:
 
 > "Install. Type `ultrawork`. Done." — oh-my-opencode 철학
 
+> **Agent:** See [`agents/ultrawork.agent.md`](../../agents/ultrawork.agent.md) for runtime contract and delegation logic.
+
 ## 사용법
 
 ```

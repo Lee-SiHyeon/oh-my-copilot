@@ -19,6 +19,8 @@ allowed-tools:
 
 > "코드 짜기 전에 생각하라. Prometheus는 실행 전에 묻는다."
 
+> **Agent:** See [`agents/prometheus.agent.md`](../../agents/prometheus.agent.md) for runtime contract and delegation logic.
+
 ## 사용법
 
 ```

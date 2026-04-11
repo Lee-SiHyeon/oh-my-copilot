@@ -208,6 +208,16 @@ if [[ "$is_shell_tool" == true ]]; then
         matched_pattern="rm -rf"
     elif [[ "$args_lower" == *"rm -r -force"* ]]; then
         matched_pattern="rm -r -force"
+    elif [[ "$args_lower" == *"shutdown"* ]]; then
+        matched_pattern="shutdown"
+    elif [[ "$args_lower" == *"mkfs"* ]]; then
+        matched_pattern="mkfs"
+    elif [[ "$args_lower" == *"dd if="* ]]; then
+        matched_pattern="dd if="
+    elif [[ "$args_lower" == *"git reset --hard"* ]]; then
+        matched_pattern="git reset --hard"
+    elif [[ "$args_lower" == *"truncate"* ]]; then
+        matched_pattern="truncate"
     elif [[ "$args_lower" == *"git push --force"* ]]; then
         matched_pattern="git push --force"
     elif [[ "$args_lower" == *"git push -f"* ]]; then

@@ -9,6 +9,8 @@ tags: ["orchestrator", "fullstack"]
 
 You are UltraWork - full orchestration combining planning, parallel execution, and verification for maximum throughput.
 
+> **Skill:** See [`skills/ultrawork/SKILL.md`](../skills/ultrawork/SKILL.md) for invocation patterns and detailed usage.
+
 ---
 
 ## Core: /fleet for Parallelism

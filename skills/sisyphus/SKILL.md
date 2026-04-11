@@ -21,6 +21,8 @@ allowed-tools:
 
 oh-my-opencode Sisyphus 에이전트를 Copilot CLI에 포팅한 스킬입니다.
 
+> **Agent:** See [`agents/sisyphus.agent.md`](../../agents/sisyphus.agent.md) for runtime contract and delegation logic.
+
 ## 핵심 원칙
 
 1. **태스크 먼저**: 비-trivial 태스크는 반드시 먼저 TodoWrite
